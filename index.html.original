@@ -1,0 +1,3298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>JobGold — Elite Hiring Portal</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=Playfair+Display:wght@600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+  /* ================== ULTRA PREMIUM THEME (DEFAULT DARK) ================== */
+  :root {
+    --bg: #050505;
+    --panel: rgba(20, 20, 25, 0.7);
+    --text-main: #ffffff;
+    --muted: #a1a1aa;
+    --gold: #d4af37; /* Primary Gold */
+    --gold-light: #f3d476; /* Lighter Gold */
+    --gold-glow: rgba(212,175,55,0.25);
+    --red: #ff4444;
+    --green: #00cc66;
+    --card-bg: rgba(255,255,255,0.03);
+    --input-bg: rgba(0,0,0,0.3);
+    --border: rgba(255,255,255,0.08);
+    --shadow: 0 10px 30px rgba(0,0,0,0.8);
+    --glass: blur(12px) saturate(180%);
+    --scroll-track: #000;
+    --scroll-thumb: #333;
+    --overlay-grad-1: rgba(212, 175, 55, 0.08);
+    --overlay-grad-2: rgba(0, 212, 255, 0.05);
+    --grid-line: rgba(255, 255, 255, 0.03);
+    --notification-badge: #ff4444; /* Added for notification badge */
+  }
+
+  /* ================== LIGHT THEME OVERRIDES ================== */
+  [data-theme="light"] {
+    --bg: #f4f7f6;
+    --panel: rgba(255, 255, 255, 0.85);
+    --text-main: #1a1a1a;
+    --muted: #555555;
+    --gold: #b8860b; 
+    --gold-light: #e6c200;
+    --gold-glow: rgba(184, 134, 11, 0.2);
+    --red: #d32f2f;
+    --green: #2e7d32;
+    --card-bg: rgba(0,0,0,0.03);
+    --input-bg: rgba(255,255,255,0.7);
+    --border: rgba(0,0,0,0.1);
+    --shadow: 0 10px 30px rgba(0,0,0,0.1);
+    --glass: blur(15px) saturate(180%); 
+    --scroll-track: #eee;
+    --scroll-thumb: #ccc;
+    --overlay-grad-1: rgba(184, 134, 11, 0.05);
+    --overlay-grad-2: rgba(0, 150, 255, 0.05);
+    --grid-line: rgba(0, 0, 0, 0.03);
+    --notification-badge: #d32f2f;
+  }
+  
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--muted);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased; transition: background 0.3s ease, color 0.3s ease;}
+  
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: var(--scroll-track); }
+  ::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 4px; border: 1px solid var(--scroll-track); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+
+  /* Background - Enhanced Grid */
+  body::before{
+    content:"";position:fixed;inset:0;
+    background: 
+      radial-gradient(circle at 15% 50%, var(--overlay-grad-1), transparent 25%),
+      radial-gradient(circle at 85% 30%, var(--overlay-grad-2), transparent 25%);
+    z-index:0;pointer-events:none;
+    transition: background 0.5s ease;
+  }
+  body::after {
+    content: ""; position: fixed; inset: 0;
+    background-image: linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 40px 40px;
+    z-index: 0; pointer-events: none; opacity: 0.3;
+  }
+
+  h1, h2, h3 { font-family: 'Playfair Display', serif; letter-spacing: 0.5px; color: var(--text-main); }
+
+  /* --- TOAST NOTIFICATIONS (POPUP) --- */
+  #toast-container { position: fixed; top: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; }
+  .toast {
+    min-width: 300px; padding: 16px; border-radius: 12px; background: var(--panel);
+    backdrop-filter: blur(10px); border-left: 4px solid var(--gold);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2); color: var(--text-main); font-size: 14px;
+    display: flex; align-items: center; gap: 12px;
+    animation: slideIn 0.3s ease-out, fadeOut 0.5s ease 2.5s forwards;
+    border: 1px solid var(--border);
+  }
+  .toast i { font-size: 18px; }
+  .toast.error { border-left-color: var(--red); }
+  .toast.error i { color: var(--red); }
+  .toast.success { border-left-color: var(--green); }
+  .toast.success i { color: var(--green); }
+  
+  @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  @keyframes fadeOut { to { opacity: 0; transform: translateY(-20px); pointer-events: none; } }
+
+  /* --- STYLISH NAME CLASS (Enhanced) --- */
+  .user-glam-name {
+    font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 800;
+    /* More pronounced gold-silver gradient */
+    background: linear-gradient(to right, var(--gold), var(--gold-light), var(--text-main), var(--gold-light), var(--gold));
+    background-size: 400% auto; /* Larger size for better shine effect */
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 20px var(--gold-glow); /* Stronger glow */
+    animation: shine 6s linear infinite; /* Slower, more elegant shine */
+    letter-spacing: 1.5px;
+  }
+  @keyframes shine { to { background-position: 400% center; } } /* Adjusted for 400% size */
+
+  /* BUTTONS & UTILS */
+  .btn {
+    border:none; padding:10px 18px; border-radius:8px; cursor:pointer; font-weight:600; font-size:13px; transition:0.3s;
+    background: rgba(255,255,255,0.05); color: var(--text-main); border: 1px solid var(--border);
+    display: inline-flex; align-items: center; gap: 8px;
+    white-space: nowrap; 
+  }
+
+  [data-theme="light"] .btn { background: rgba(0,0,0,0.05); color: var(--text-main); border-color: rgba(0,0,0,0.1); }
+  [data-theme="light"] .btn:hover { background: rgba(0,0,0,0.1); }
+
+  .btn:hover { background: rgba(255,255,255,0.15); transform: translateY(-2px); border-color: rgba(255,255,255,0.3); }
+  
+  .btn.cta {
+    background: linear-gradient(135deg, var(--gold), var(--gold-light)); 
+    color: #000 !important; border:none; font-weight:800; text-transform: uppercase; letter-spacing: 0.5px;
+    box-shadow: 0 4px 15px var(--gold-glow);
+    animation: pulse 3s infinite;
+  }
+  .btn.cta:hover { box-shadow: 0 6px 25px rgba(212,175,55,0.6); transform: translateY(-2px) scale(1.02); }
+
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(212, 175, 55, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0); }
+  }
+
+  /* --- LOGOUT BUTTON --- */
+  .logout-btn {
+    border: 1px solid var(--red) !important;
+    color: var(--red) !important;
+    background: rgba(255, 68, 68, 0.05) !important;
+    padding: 8px 16px !important;
+  }
+  .logout-btn:hover {
+    background: var(--red) !important;
+    color: #fff !important;
+    box-shadow: 0 0 15px rgba(255, 68, 68, 0.4);
+    transform: translateY(-2px);
+  }
+
+  /* ACTION BUTTONS */
+  .action-btn {
+    width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 8px; cursor: pointer; transition: all 0.3s ease;
+    border: 1px solid var(--border); background: var(--card-bg);
+  }
+  .action-btn.edit { color: var(--gold); border-color: var(--gold); }
+  .action-btn.edit:hover { background: var(--gold); color: #000; box-shadow: 0 0 15px var(--gold); transform: scale(1.1); }
+  .action-btn.del { color: var(--red); border-color: var(--red); }
+  .action-btn.del:hover { background: var(--red); color: #fff; box-shadow: 0 0 15px var(--red); transform: scale(1.1); }
+  
+  /* --- NEW: Liked/Saved Job Icon Style --- */
+  .like-job-icon {
+      font-size: 20px; /* Bigger Icon */
+      cursor: pointer;
+      color: var(--muted);
+      transition: color 0.3s ease;
+      padding: 5px; /* Added padding for a larger click area */
+  }
+  .like-job-icon:hover {
+      color: var(--gold-light);
+  }
+  .like-job-icon.liked {
+      color: var(--red) !important; 
+      filter: drop-shadow(0 0 5px var(--red));
+      animation: heartBeat 1s infinite alternate;
+  }
+  @keyframes heartBeat {
+      0% { transform: scale(1.0); }
+      100% { transform: scale(1.1); }
+  }
+
+  /* TOP NAVBAR FIXES (For responsiveness) */
+  .topnav{
+    position:sticky;top:15px;z-index:60;max-width:1200px;margin:0 auto;padding:12px 24px;
+    background: var(--panel); backdrop-filter: var(--glass);
+    border-radius:16px; border:1px solid var(--border);
+    display:flex; align-items:center; gap:30px; /* Increased gap for spacing */
+    box-shadow:var(--shadow);
+    transition: background 0.3s ease;
+    flex-wrap: nowrap; /* Prevent primary wrapping on wide screens */
+  }
+  .brand{display:flex;align-items:center;gap:12px; cursor: pointer; flex-shrink: 0;}
+  /* LOGO ENHANCEMENT */
+  .brandLogo{
+    width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg, var(--gold), var(--gold-light));
+    display:flex;align-items:center;justify-content:center;color:#000;font-size: 20px;
+    box-shadow: 0 0 25px var(--gold-glow); /* Stronger glow */
+    transform: rotate(-5deg); /* Slight tilt for dynamism */
+  }
+  .brandTitle{
+    font-weight:700;color:var(--text-main); font-size:22px; 
+    font-family: 'Playfair Display', serif;
+    /* Added strong text shadow for premium feel */
+    text-shadow: 0 0 8px var(--gold-glow);
+  }
+  .brand-tagline {
+      font-size: 10px; color: var(--gold); letter-spacing: 1.5px; font-weight: 700;
+  }
+  
+  .navlinks { display: flex; gap: 15px; flex-shrink: 0;} /* Increased gap for spacing */
+  .navlinks button{position:relative; background:transparent;border:0;color:var(--muted);padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:600; transition:.2s; font-size: 14px;}
+  .navlinks button:hover { color:var(--text-main); }
+  .navlinks button.active{color:var(--gold); background: var(--card-bg); border: 1px solid var(--border);}
+  .spacer{flex:1}
+  .top-actions { flex-shrink: 0; } 
+
+  /* --- NEW: Notification Badge Style --- */
+  #notificationBtn {
+    /* Style to make it stand out */
+    background: rgba(255, 255, 255, 0.08); 
+    border: 1px solid var(--gold);
+    color: var(--gold) !important;
+  }
+  #notificationBtn:hover {
+    background: var(--gold-glow);
+  }
+  #notificationBtn i { color: var(--gold); }
+  .notification-count {
+      position: absolute; top: 0; right: 0;
+      background: var(--notification-badge);
+      color: white; font-size: 10px; font-weight: 700;
+      width: 18px; height: 18px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 5px var(--notification-badge);
+  }
+  /* --- NEW: Notification Popup Style --- */
+  #notification-popup {
+      position: fixed; top: 75px; right: 20px; z-index: 70; 
+      width: 320px; max-height: 400px; overflow-y: auto;
+      background: var(--panel); backdrop-filter: var(--glass);
+      border: 1px solid var(--border); border-radius: 12px;
+      padding: 15px; box-shadow: var(--shadow);
+      display: none; /* Controlled by JS */
+  }
+  .notification-item {
+      padding: 10px 5px; border-bottom: 1px solid var(--border);
+      font-size: 13px; line-height: 1.5;
+      color: var(--text-main);
+  }
+  .notification-item:last-child { border-bottom: none; }
+  .notification-item strong { color: var(--gold-light); }
+  .no-notifications {
+      text-align: center; color: var(--muted); padding: 20px; font-style: italic;
+  }
+  
+  /* NEW: Notification View (Page) Style */
+  .notification-card {
+    border: 1px solid var(--border);
+    padding: 20px;
+    border-radius: 12px;
+    background: var(--card-bg);
+    margin-bottom: 15px;
+    transition: all 0.3s;
+    border-left: 4px solid var(--gold);
+  }
+  .notification-card:hover {
+    border-color: var(--gold);
+    transform: translateY(-2px);
+  }
+
+
+  /* THEME TOGGLE */
+  #themeToggle {
+      background: transparent; border: 1px solid var(--border); color: var(--gold); width: 40px; height: 40px; 
+      display: flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; transition: 0.3s;
+  }
+  #themeToggle:hover { background: var(--card-bg); transform: rotate(15deg); }
+
+  /* LAYOUT */
+  .app{position:relative;z-index:2;max-width:1200px;margin:25px auto;padding:0 20px}
+  .layout{display:flex;gap:30px}
+  .main{flex:1}
+  
+  /* SIDEBAR */
+  .sidebar{
+    width:260px; background:var(--panel); border-radius:16px; padding:25px;
+    border:1px solid var(--border); align-self:flex-start; position: sticky; top: 95px;
+    backdrop-filter: var(--glass);
+  }
+  .nav{margin-top:20px;display:flex;flex-direction:column;gap:8px}
+  .nav button{
+    background:transparent;border:0;padding:14px;text-align:left;border-radius:10px;
+    color:var(--muted); cursor:pointer;font-weight:500; transition:.3s; display: flex; gap: 12px; align-items: center; font-size: 14px;
+  }
+  .nav button i { width: 20px; text-align: center; }
+  .nav button:hover { background: var(--card-bg); color: var(--text-main); transform: translateX(5px); }
+  .nav button.active{
+    background:linear-gradient(90deg, var(--card-bg), transparent); 
+    color:var(--gold); border-left: 3px solid var(--gold);
+    text-shadow: 0 0 10px var(--gold-glow);
+  }
+
+  /* HERO & CARDS */
+  .card{
+    background:var(--panel); padding:24px; border-radius:18px; 
+    border:1px solid var(--border); margin-bottom: 24px;
+    backdrop-filter: var(--glass); box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+  }
+  .hero{
+    display:flex; align-items:center; justify-content:space-between; gap:20px;
+    background: linear-gradient(135deg, #1e1e23, #0a0a0c); 
+    border: 1px solid var(--border);
+    position: relative; overflow: hidden;
+  }
+  [data-theme="light"] .hero { background: linear-gradient(135deg, #ffffff, #f0f0f0); }
+  [data-theme="light"] .hero h1 { color: #111; }
+  
+  .hero::after {
+    content:''; position: absolute; top:-50%; right:-50%; width: 100%; height: 200%;
+    background: radial-gradient(circle, var(--gold-glow), transparent 60%);
+    pointer-events: none;
+  }
+  
+  /* ENHANCED HERO TITLE */
+  .hero-title {
+    font-size: 38px;
+    font-weight: 800;
+    line-height: 1.2;
+    margin: 0;
+    /* Gold Gradient Text */
+    background: linear-gradient(45deg, var(--gold), var(--gold-light), var(--text-main));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 10px var(--gold-glow);
+  }
+  
+  /* UPDATED: SearchBar spacing and Mic position fix */
+  .searchBar{
+    display:flex;
+    gap: 15px; 
+    margin-top:20px; 
+    background: rgba(0,0,0,0.2); 
+    padding: 8px; 
+    border-radius: 12px; 
+    border: 1px solid var(--border);
+    flex-wrap: wrap; 
+    align-items: center; /* Ensure vertical alignment */
+  }
+  /* NEW: Voice Search/Input Group */
+  .search-group {
+      display: flex;
+      flex: 1;
+      min-width: 200px;
+      align-items: center;
+      gap: 5px;
+      border: 1px solid var(--border); /* Visual grouping */
+      border-radius: 8px;
+      background: var(--input-bg);
+  }
+  .search-group #voiceSearchBtn {
+      order: 1; /* Move mic to the right of the input field */
+      margin-left: 5px;
+      margin-right: 5px;
+  }
+  .search-group input {
+      flex: 1;
+      padding-left: 10px !important; 
+      background: transparent !important;
+      border: none !important;
+  }
+  .searchBar > i {
+    display: none; /* Hide magnifying glass */
+  }
+  
+  #voiceSearchBtn {
+    width: 40px; 
+    height: 40px; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: var(--card-bg);
+    color: #00d4ff;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: 0.3s;
+    flex-shrink: 0;
+  }
+  #voiceSearchBtn:hover {
+    background: #00d4ff;
+    color: #000;
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.4);
+    transform: scale(1.05);
+  }
+  #voiceSearchBtn.listening {
+    background: var(--red);
+    color: #fff;
+    animation: pulse 1.5s infinite;
+  }
+
+  /* Select and button styling in search bar */
+  .searchBar select {
+    max-width: 180px; 
+    flex-shrink: 1;
+    border-left: 1px solid var(--border); /* Re-added separator */
+  }
+
+
+  .searchBar select option { background: var(--bg); color: var(--text-main); }
+  
+  /* JOB LIST DESIGN */
+  .jobList{display:flex;flex-direction:column;gap:16px;margin-top:16px}
+  .job{
+    display:flex; justify-content:space-between; gap:16px; padding:24px;
+    border-radius:16px; border:1px solid var(--border);
+    background: var(--card-bg);
+    transition: all .3s ease; position: relative; overflow: hidden;
+  }
+  .job:hover{ 
+    transform:translateY(-5px); border-color: var(--gold); 
+    box-shadow: 0 15px 40px rgba(0,0,0,0.1); 
+  }
+  .job h3{margin:0;color:var(--text-main);font-size:18px; font-weight: 600;}
+  .meta{font-size:13px;color:var(--muted);margin-top:10px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap;}
+  .meta span { display: flex; align-items: center; gap: 6px; }
+  .meta i { color: var(--gold); }
+  
+  .pill{
+    background: rgba(212,175,55,0.1); color:var(--gold); padding:8px 14px; 
+    border-radius:30px; font-weight:700; font-size: 13px; border:1px solid var(--gold);
+    display: inline-flex; align-items: center; gap: 6px;
+    white-space: nowrap;
+  }
+  .right { display: flex; flex-direction: column; align-items: flex-end; gap: 14px; }
+  .action-row { display: flex; gap: 10px; margin-top: auto; }
+  
+  /* Form Rows */
+  .row { display: flex; gap: 15px; }
+
+  /* FORMS */
+  input, select, textarea {
+    width:100%; padding:14px; border-radius:10px; border:1px solid var(--border);
+    background:var(--input-bg); color:var(--text-main); outline:none; font-family: inherit; transition: 0.3s;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--gold); background: var(--card-bg); box-shadow: 0 0 15px rgba(212,175,55,0.1); }
+  
+  /* File Input Custom Style */
+  input[type="file"] {
+      padding: 10px;
+      border: 1px solid var(--border);
+      background: var(--input-bg);
+      cursor: pointer;
+  }
+  input[type="file"]::file-selector-button {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 8px;
+      margin-right: 10px;
+      cursor: pointer;
+      color: var(--gold-light);
+      transition: all 0.3s;
+  }
+  input[type="file"]:hover::file-selector-button {
+      background: var(--gold);
+      color: #000;
+  }
+
+  /* Fix for text color in select options for dark/light themes */
+  select {
+      color: var(--text-main) !important;
+  }
+  select option {
+      background: var(--bg); /* Ensures background matches theme */
+      color: var(--text-main); /* Ensures text color matches theme */
+  }
+
+  /* NEW: Status Flow Indicators */
+  .status-flow {
+      display: flex;
+      gap: 5px;
+      margin-top: 10px;
+      font-size: 10px;
+      align-items: center;
+  }
+  .status-step {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      font-weight: 600;
+      color: var(--muted);
+  }
+  .status-step.active {
+      color: var(--gold-light);
+  }
+  .status-step.completed {
+      color: var(--green);
+  }
+  .status-step.rejected {
+      color: var(--red);
+  }
+  .flow-arrow {
+      color: var(--muted);
+  }
+
+
+  .footer{margin-top:40px;text-align:center;color:var(--muted);font-size:13px; border-top: 1px solid var(--border); padding-top: 20px;}
+  .footer-icons { margin-top: 10px; display: flex; justify-content: center; gap: 20px; font-size: 18px; }
+  /* UPDATED: Footer Icons */
+  .footer-icons a i { 
+    cursor: pointer; 
+    transition: 0.3s; 
+    color: var(--muted); 
+  }
+  .footer-icons a:hover i { 
+    color: var(--gold); 
+    transform: scale(1.2); 
+  }
+
+  /* AUTH MODAL */
+  .modal{display:none;position:fixed;inset:0;align-items:center;justify-content:center;z-index:999;background:rgba(0,0,0,0.85); backdrop-filter: blur(8px); padding: 10px;}
+  
+  /* UPDATED: Height set to 505px */
+  .auth-wrapper {
+        position: relative; width: 100%; max-width: 800px; height: 505px;
+        border: 2px solid #00d4ff; box-shadow: 0 0 30px rgba(0, 212, 255, 0.4);
+        overflow: hidden; background: #1a1a2e; border-radius: 16px;
+    }
+    .auth-wrapper .credentials-panel { position: absolute; top: 0; width: 50%; height: 100%; display: flex; justify-content: center; flex-direction: column; z-index: 20; }
+    .credentials-panel.signin { left: 0; padding: 0 40px; }
+    .credentials-panel.signin .slide-element { transform: translateX(0%); transition: .7s; opacity: 1; }
+    .credentials-panel.signin .slide-element:nth-child(1) { transition-delay: 0.8s; }
+    .credentials-panel.signin .slide-element:nth-child(2) { transition-delay: 0.9s; }
+    .credentials-panel.signin .slide-element:nth-child(3) { transition-delay: 1.0s; }
+    .credentials-panel.signin .slide-element:nth-child(4) { transition-delay: 1.1s; }
+    .credentials-panel.signin .slide-element:nth-child(5) { transition-delay: 1.2s; }
+    .auth-wrapper.toggled .credentials-panel.signin .slide-element { transform: translateX(-120%); opacity: 0; }
+    .auth-wrapper.toggled .credentials-panel.signin .slide-element:nth-child(1) { transition-delay: 0s; }
+
+    .credentials-panel.signup { right: 0; padding: 0 60px; }
+    .credentials-panel.signup .slide-element { transform: translateX(120%); transition: .7s ease; opacity: 0; filter: blur(10px); }
+    .credentials-panel.signup .slide-element:nth-child(1) { transition-delay: 0s; }
+    .auth-wrapper.toggled .credentials-panel.signup .slide-element { transform: translateX(0%); opacity: 1; filter: blur(0px); }
+    .auth-wrapper.toggled .credentials-panel.signup .slide-element:nth-child(1) { transition-delay: 1.7s; }
+    .auth-wrapper.toggled .credentials-panel.signup .slide-element:nth-child(2) { transition-delay: 1.8s; }
+
+    .credentials-panel h2 { font-size: 32px; text-align: center; color: white; margin-bottom: 20px;}
+    .credentials-panel .field-wrapper { position: relative; width: 100%; height: 50px; margin-top: 25px; }
+    .field-wrapper input, .field-wrapper select { width: 100%; height: 100%; background: transparent; border: none; outline: none; font-size: 16px; color: #fff; font-weight: 600; border-bottom: 2px solid #fff; padding-right: 23px; transition: .5s; border-radius: 0; padding-left: 0;}
+    .field-wrapper input:-webkit-autofill { -webkit-box-shadow: 0 0 0 30px #1a1a2e inset !important; -webkit-text-fill-color: white !important; }
+    .field-wrapper input:focus, .field-wrapper input:valid { border-bottom: 2px solid #00d4ff; }
+    .field-wrapper label { position: absolute; top: 50%; left: 0; transform: translateY(-50%); font-size: 16px; color: #fff; transition: .5s; pointer-events: none;}
+    /* Fix for register select label position */
+    .field-wrapper input:focus~label, .field-wrapper input:valid~label, .field-wrapper select:valid~label, .field-wrapper select:focus~label { top: -5px; color: #00d4ff; font-size: 12px; }
+    
+    /* UPDATED: Password Toggle Icon Style (Stylish Button) */
+    .field-wrapper i { position: absolute; top: 50%; right: 0; font-size: 18px; transform: translateY(-50%); color: #fff; transition: 0.3s; }
+    
+    /* STYLISH TOGGLE BUTTON CSS (IMPROVED COLOR CONTRAST) */
+    .field-wrapper i.pass-toggle { 
+        cursor: pointer; 
+        z-index: 100; 
+        pointer-events: all;
+        background: rgba(255, 255, 255, 0.1); /* Glass background */
+        padding: 5px;
+        border-radius: 50%; /* Circle shape */
+        width: 32px; height: 32px;
+        display: flex; align-items: center; justify-content: center;
+        border: 1px solid rgba(255,255,255,0.1);
+        right: 0px !important; /* Force position */
+        color: #fff !important; /* Default white for better contrast */
+    }
+    .field-wrapper i.pass-toggle:hover { 
+        background: var(--gold); 
+        color: #000 !important; 
+        box-shadow: 0 0 12px var(--gold-glow);
+        transform: translateY(-50%) scale(1.1); /* Slightly enlarge */
+        border-color: var(--gold);
+    }
+    /* Fixed: Ensure the icon color remains white/gold on focus, not blue */
+    .field-wrapper input:focus~i, .field-wrapper input:valid~i { color: var(--gold-light); }
+    
+    /* UPDATED: Register Role Select Colors (Visibility Fix) */
+    .field-wrapper select {
+        color: var(--text-main) !important; /* Keep select text theme color */
+    }
+    /* FIX FOR SELECT OPTION VISIBILITY IN DARK THEME */
+    .field-wrapper select option { 
+        background: var(--bg); /* Ensures background matches theme */
+        color: var(--text-main); /* Ensures text color matches theme */
+        font-weight: 500;
+    }
+
+    .submit-button { position: relative; width: 100%; height: 45px; background: transparent; border-radius: 40px; cursor: pointer; font-size: 16px; font-weight: 600; border: 2px solid #00d4ff; overflow: hidden; z-index: 1; color: white; margin-top: 20px;}
+    .submit-button::before { content: ""; position: absolute; height: 300%; width: 100%; background: linear-gradient(#1a1a2e, #00d4ff, #1a1a2e, #00d4ff); top: -100%; left: 0; z-index: -1; transition: .5s; }
+    .submit-button:hover:before { top: 0; }
+    .switch-link { font-size: 14px; text-align: center; margin: 20px 0 10px; color: white; }
+    .switch-link a { text-decoration: none; color: #00d4ff; font-weight: 600; }
+
+    .welcome-section { position: absolute; top: 0; height: 100%; width: 50%; display: flex; justify-content: center; flex-direction: column; color:white; z-index: 10; }
+    .welcome-section.signin { right: 0; text-align: right; padding: 0 40px 60px 150px; }
+    .welcome-section.signin .slide-element { transform: translateX(0); transition: .7s ease; opacity: 1; filter: blur(0px); }
+    .welcome-section.signin .slide-element:nth-child(1) { transition-delay: 2.0s; }
+    .auth-wrapper.toggled .welcome-section.signin .slide-element { transform: translateX(120%); opacity: 0; }
+    .auth-wrapper.toggled .welcome-section.signin .slide-element:nth-child(1) { transition-delay: 0s; }
+
+    .welcome-section.signup { left: 0; text-align: left; padding: 0 150px 60px 38px; pointer-events: none; }
+    .welcome-section.signup .slide-element { transform: translateX(-120%); transition: .7s ease; opacity: 0; }
+    .auth-wrapper.toggled .welcome-section.signup .slide-element { transform: translateX(0%); opacity: 1; }
+    .auth-wrapper.toggled .welcome-section.signup .slide-element:nth-child(1) { transition-delay: 1.7s; }
+
+    .welcome-section h2 { text-transform: uppercase; font-size: 36px; line-height: 1.3; }
+    .auth-wrapper .background-shape { position: absolute; right: 0; top: -5px; height: 600px; width: 850px; background: linear-gradient(45deg, #1a1a2e, #00d4ff); transform: rotate(10deg) skewY(40deg); transform-origin: bottom right; transition: 1.5s ease; transition-delay: 1.6s; z-index: 0; }
+    .auth-wrapper.toggled .background-shape { transform: rotate(0deg) skewY(0deg); transition-delay: .5s; }
+    .auth-wrapper .secondary-shape { position: absolute; left: 250px; top: 100%; height: 700px; width: 850px; background: #1a1a2e; border-top: 3px solid #00d4ff; transform: rotate(0deg) skewY(0deg); transform-origin: bottom left; transition: 1.5s ease; transition-delay: .5s; z-index: 0; }
+    .auth-wrapper.toggled .secondary-shape { transform: rotate(-11deg) skewY(-41deg); transition-delay: 1.2s; }
+    .modal-close-btn { position: absolute; top: 15px; right: 15px; background: #00d4ff; width: 32px; height: 32px; border-radius: 50%; border: none; cursor: pointer; z-index: 100; font-weight: bold; color: #000; display:flex; align-items:center; justify-content:center;}
+
+    /* --- PROFILE CARD STYLES --- */
+    .profile-card {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 20px;
+        padding: 20px;
+        border-radius: 12px;
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        margin-bottom: 15px;
+        transition: border-color 0.3s ease;
+    }
+    .profile-card:hover {
+        border-color: var(--gold);
+    }
+    
+    /* Naresh Suthar Premium Card Style */
+    .profile-card.premium {
+        border: 2px solid var(--gold-light);
+        /* UPDATED: Light theme compatibility for creator card background */
+        background: linear-gradient(135deg, var(--card-bg), rgba(212,175,55,0.05));
+        box-shadow: 0 0 25px var(--gold-glow);
+    }
+    .profile-card.premium .profile-photo {
+        border: 3px solid var(--gold-light);
+        box-shadow: 0 0 15px var(--gold-glow);
+    }
+    .profile-card.premium .role {
+        font-size: 15px;
+        color: var(--gold-light);
+        font-weight: 700;
+        text-shadow: 0 0 5px rgba(212,175,55,0.3);
+    }
+    
+    .profile-card.pending {
+        border: 2px solid var(--muted);
+        opacity: 0.8;
+    }
+    .profile-card.pending .profile-photo {
+        filter: grayscale(80%);
+    }
+    .profile-card.pending .hire-status {
+        color: var(--muted);
+    }
+
+
+    .profile-card-left {
+        display: flex;
+        align-items: flex-start; /* Changed to flex-start to align top */
+        gap: 20px;
+    }
+    .profile-photo {
+        flex-shrink: 0;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        overflow: hidden;
+        border: 3px solid var(--gold-light);
+        box-shadow: 0 0 10px var(--gold-glow);
+    }
+    .profile-photo img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .profile-info h4 {
+        margin: 0;
+        font-size: 18px;
+        color: var(--text-main);
+    }
+    .profile-info .role {
+        font-size: 14px;
+        color: var(--gold);
+        font-weight: 600;
+        margin-top: 4px;
+    }
+    .profile-info .prev-company {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 2px;
+    }
+    .profile-info .experience-text {
+        font-size: 13px;
+        margin-top: 10px;
+        color: var(--muted);
+        white-space: pre-wrap; /* Allows line breaks in the description */
+    }
+    .profile-card-right {
+        text-align: right;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 10px;
+    }
+    .hire-btn {
+        background: var(--green);
+        color: #000 !important;
+        border: none;
+        font-weight: 700;
+        padding: 8px 16px;
+        transition: 0.3s;
+    }
+    .hire-btn:hover {
+        background: var(--green);
+        box-shadow: 0 0 15px rgba(0, 204, 102, 0.5);
+    }
+    .verify-btn {
+        background: #00d4ff;
+        color: #000 !important;
+        border: none;
+        font-weight: 700;
+        padding: 8px 16px;
+        transition: 0.3s;
+    }
+    .verify-btn:hover {
+        background: #00a4d4;
+        box-shadow: 0 0 15px rgba(0, 212, 255, 0.5);
+    }
+    .profile-del-btn {
+        border: 1px solid var(--red) !important;
+        color: var(--red) !important;
+        background: rgba(255, 68, 68, 0.05) !important;
+        padding: 8px 16px !important;
+        font-weight: 600;
+    }
+    .profile-del-btn:hover {
+        background: var(--red) !important;
+        color: #fff !important;
+        box-shadow: 0 0 15px rgba(255, 68, 68, 0.4);
+    }
+
+    .profile-edit-btn {
+        border: 1px solid var(--gold) !important;
+        color: var(--gold) !important;
+        background: rgba(212, 175, 55, 0.05) !important;
+        padding: 8px 16px !important;
+        font-weight: 600;
+    }
+    .profile-edit-btn:hover {
+        background: var(--gold) !important;
+        color: #000 !important;
+        box-shadow: 0 0 15px var(--gold-glow);
+    }
+    .hire-status {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 8px;
+    }
+
+    /* --- ENHANCED DASHBOARD STATS (ADDED GLOW) --- */
+    .stat-card {
+        display: flex; align-items: center; gap: 25px; 
+        border-left: 4px solid var(--gold); margin: 0;
+        transition: all 0.3s ease;
+        /* Added box shadow/glow based on card type */
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    /* Gold Card Glow */
+    .stat-card:first-child {
+        box-shadow: 0 0 20px var(--gold-glow);
+        border-left-color: var(--gold-light);
+    }
+    /* Application Card Glow */
+    .stat-card:last-child {
+        box-shadow: 0 0 20px rgba(0, 212, 255, 0.15);
+        border-left-color: #00d4ff;
+    }
+    
+    /* Premium About Me Card Styles */
+    .about-me-card {
+        border: 2px solid var(--gold-light);
+        /* UPDATED: Light theme compatibility for creator card background */
+        background: var(--panel); 
+        box-shadow: 0 0 35px var(--gold-glow);
+        padding: 30px;
+    }
+    /* Light Theme specific fix for About Me Card */
+    [data-theme="light"] .about-me-card {
+        border: 2px solid var(--gold);
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+    }
+    .about-me-header {
+        display: flex; justify-content: space-between; align-items: flex-start;
+        border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 20px;
+    }
+    .about-me-info {
+        display: flex; gap: 25px;
+    }
+    .about-me-photo-container {
+        width: 120px; height: 120px; border-radius: 50%; overflow: hidden;
+        border: 4px solid var(--gold-light); box-shadow: 0 0 15px var(--gold-glow);
+        flex-shrink: 0;
+    }
+    .about-me-photo {
+        width: 100%; height: 100%; object-fit: cover;
+    }
+    .about-me-details {
+        display: flex; flex-direction: column; justify-content: center;
+    }
+    .detail-item {
+        display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+        font-size: 14px;
+    }
+    .detail-item i { color: var(--gold-light); }
+    .about-me-experience h4 {
+        margin-top: 30px;
+        color: var(--gold);
+        font-size: 18px;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 10px;
+    }
+    .about-me-experience p {
+        white-space: pre-wrap;
+        line-height: 1.7;
+        color: var(--muted);
+        margin-top: 15px;
+    }
+    .about-me-title {
+        font-family: 'Playfair Display', serif; 
+        font-size: 26px; 
+        font-weight: 800;
+        background: linear-gradient(to right, var(--gold), var(--gold-light));
+        -webkit-background-clip: text; 
+        -webkit-text-fill-color: transparent;
+        text-shadow: 0 0 10px var(--gold-glow);
+        margin: 0;
+    }
+    
+    /* MAP CONTAINER STYLE (Moved to its own view) */
+    #map-container {
+        height: 400px; 
+        width: 100%; 
+        border-radius: 12px; 
+        border: 2px solid var(--border); 
+        overflow: hidden;
+        box-shadow: var(--shadow);
+        background: #2a2a2a; /* Placeholder background for map area */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--gold-light);
+        font-size: 18px;
+        position: relative;
+    }
+    /* 3D Map Simulation Style */
+    #map-iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+        filter: grayscale(50%) contrast(1.1);
+    }
+
+
+  @media (max-width: 768px) {
+        /* Adjusted min-height for mobile to match new wrapper height */
+        .auth-wrapper { height: auto; min-height: 505px; flex-direction: column; }
+        .auth-wrapper .credentials-panel, .welcome-section { width: 100%; position: relative; }
+        .credentials-panel.signin, .credentials-panel.signup { padding: 40px 30px; left: 0; right: 0; }
+        .credentials-panel.signin { display: flex; animation: fadeInUp 0.6s ease forwards; }
+        .credentials-panel.signup { display: none; }
+        .auth-wrapper.toggled .credentials-panel.signin { display: none; }
+        .auth-wrapper.toggled .credentials-panel.signup { display: flex; animation: fadeInUp 0.6s ease forwards; }
+        .credentials-panel.signin .slide-element, .credentials-panel.signup .slide-element { transform: translateY(0); opacity: 1; filter: blur(0); animation: slideInUp 0.5s ease forwards; }
+        .welcome-section { display: none; }
+        .auth-wrapper .background-shape, .auth-wrapper .secondary-shape { display: none; }
+        
+        /* Notification Popup Fix */
+        #notification-popup { left: 50%; right: auto; transform: translateX(-50%); width: 90%; }
+  }
+
+  /* ========================================= */
+  /* ============ MOBILE FIXES =============== */
+  /* ========================================= */
+
+  @media (max-width: 900px) {
+    /* WRAP LAYOUT: Stack Sidebar & Main */
+    .layout { flex-direction: column; }
+    .sidebar { width: 100%; position: relative; top: 0; margin-bottom: 20px; }
+    
+    /* WRAP TOPBAR (Enable wrap only below 900px) */
+    .topnav { flex-wrap: wrap; height: auto; justify-content: center; padding: 10px; }
+    .brand { width: 100%; justify-content: center; margin-bottom: 10px; }
+    .spacer { display: none; }
+    .navlinks { width: 100%; display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    .top-actions { width: 100%; justify-content: center; margin-top: 10px;}
+    #guestNav, #userNav { justify-content: center; flex-wrap: wrap; }
+    
+    /* FIX FORMS */
+    .row { flex-direction: column; gap: 10px; }
+    .searchBar { flex-direction: column; }
+    .searchBar select { max-width: 100% !important; border-left: none; border-top: 1px solid rgba(255,255,255,0.1); }
+    
+    /* DASHBOARD STATS */
+    #view-dashboard > div { grid-template-columns: 1fr !important; }
+
+    /* MOBILE ABOUT ME FIX */
+    .about-me-card { padding: 20px; }
+    .about-me-header { flex-direction: column; align-items: center; text-align: center;}
+    .about-me-info { flex-direction: column; align-items: center; text-align: center; gap: 15px;}
+    .about-me-title { font-size: 22px; }
+    
+    /* Search bar wrap fix for mic button */
+    .searchBar { gap: 10px; }
+    .search-group { width: 100%; }
+    .searchBar > select, .searchBar > button { min-width: 48%; }
+    .searchBar #searchBtn { min-width: 100%; }
+  }
+
+  @media (max-width: 600px) {
+    /* WRAP HERO */
+    .hero { flex-direction: column; text-align: center; padding: 30px 20px; }
+    .heroRight { display: none; } /* Hide big icon on small phones */
+    
+    /* WRAP JOB CARDS */
+    .job { flex-direction: column; }
+    .right { flex-direction: row; width: 100%; justify-content: space-between; align-items: center; margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px; }
+    .action-row { margin-top: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div id="toast-container"></div>
+
+<div class="topnav">
+  <div class="brand" id="navLogo">
+    <div class="brandLogo"><i class="fa-solid fa-crown"></i></div>
+    <div>
+      <div class="brandTitle">JobGold</div>
+      <div class="brand-tagline">✨ ELITE HIRING PARTNER</div>
+    </div>
+  </div>
+
+  <div class="navlinks" id="topLinks">
+    <button class="active" data-view="dashboard"><i class="fa-solid fa-gauge-high"></i> Dashboard</button>
+    <button data-view="jobs"><i class="fa-solid fa-briefcase"></i> Browse Jobs</button>
+    <button data-view="notifications" id="notificationBtn" data-role="jobseeker,admin" style="display:none;">
+        <i class="fa-solid fa-bell"></i> Notifications
+        <span id="notificationCount" class="notification-count" style="display:none;">0</span>
+    </button>
+  </div>
+  
+  <div id="notification-popup">
+      <h4 style="margin: 0 0 10px 0; color: var(--gold-light); font-size: 16px;">Hire Notifications</h4>
+      <div id="notificationList"></div>
+  </div>
+
+  <div class="spacer"></div>
+
+  <div class="top-actions" style="display:flex; gap:15px; align-items:center;">
+      
+      <button id="themeToggle" title="Toggle Light/Dark Mode">
+          <i class="fa-solid fa-sun" id="themeIcon"></i>
+      </button>
+
+      <div id="guestNav" style="display:flex; gap:10px;">
+        <button class="btn" id="openLogin"><i class="fa-solid fa-arrow-right-to-bracket"></i> Login</button>
+        <button class="btn" id="openRegister">Register</button>
+        <button class="btn cta" id="ctaApply" data-role="employer,admin" style="display:none;"><i class="fa-solid fa-plus"></i> Post Job</button>
+      </div>
+      <div id="userNav" style="display:none; gap:15px; align-items:center;">
+        <div style="text-align:right; line-height:1.2;">
+            <div id="userGreeting" class="user-glam-name"></div>
+            <div id="userRoleDisplay" style="font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:1px;"></div>
+        </div>
+        <button class="btn logout-btn" id="doLogout">
+            <i class="fa-solid fa-power-off"></i> <span>LOGOUT</span>
+        </button>
+      </div>
+  </div>
+</div>
+
+<div class="app">
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <nav class="nav">
+        <button class="active" data-view="dashboard"><i class="fa-solid fa-gauge-high" style="color:var(--gold)"></i> Dashboard</button>
+        <button data-view="add" data-role="employer,admin" style="display:none;"><i class="fa-solid fa-circle-plus" style="color:#4caf50"></i> Post New Job</button>
+        <button data-view="jobs"><i class="fa-solid fa-list-check" style="color:#2196f3"></i> All Active Jobs</button>
+        
+        <button data-view="employer-apps" data-role="employer,admin" style="display:none;"><i class="fa-solid fa-handshake-angle" style="color:#9c27b0"></i> Applications Received</button>
+        <button data-view="jobseeker-apps" data-role="jobseeker,admin" style="display:none;"><i class="fa-solid fa-file-invoice" style="color:#2196f3"></i> My Job Applications</button>
+
+        <button data-view="profiles"><i class="fa-solid fa-user-gear" style="color:var(--gold)"></i> Candidate Profiles</button>
+        <button data-view="submit-history" data-role="jobseeker,admin" style="display:none;"><i class="fa-solid fa-clock-rotate-left" style="color:#64b5f6"></i> Share Job History</button>
+        <button data-view="saved-jobs" data-role="jobseeker,admin" style="display:none;"><i class="fa-solid fa-heart" style="color:var(--red);"></i> Saved Jobs</button>
+        <button data-view="map"><i class="fa-solid fa-map-location-dot" style="color:#00d4ff;"></i> Jobs Near Me (Map)</button>
+        <button data-view="about-me"><i class="fa-solid fa-user-secret" style="color:#f3d476"></i> About Me / Admin</button>
+      </nav>
+      
+      <div style="margin-top:auto; padding-top:20px; border-top:1px solid var(--border); text-align:center;">
+         <div class="tiny" style="color:var(--muted); font-size:12px;"><i class="fa-solid fa-shield-halved"></i> Secure Connection</div>
+         <div style="font-size:11px; margin-top:5px; color:var(--muted)">Status: <span id="statusIndicator" style="color:var(--gold)">...</span></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <section class="hero card">
+        <div class="heroLeft" style="flex:2">
+          <h1 class="hero-title">Find elite talent.</h1>
+          <h1 class="hero-title"><span style="color:var(--gold)">Hire in 24 Hours.</span></h1>
+          <p class="tiny" style="color:var(--muted); margin-top:10px; font-size:14px;">The world's most premium local hiring portal. Fast, Secure & Free.</p>
+
+          <div class="searchBar">
+            <div class="search-group">
+                <input id="searchInput" placeholder="Search by title, skill or city...">
+                <div id="voiceSearchBtn" title="Search using your voice (Simulated)">
+                    <i class="fa-solid fa-microphone"></i>
+                </div>
+            </div>
+            <select id="searchCategory" style="border-left:1px solid var(--border);"></select>
+            <select id="searchSalaryRange" style="border-left:1px solid var(--border);">
+                <option value="">Salary Range</option>
+                <option value="0-10000">0 - 10K</option>
+                <option value="10000-20000">10K - 20K</option>
+                <option value="20000-30000">20K - 30K</option>
+                <option value="30000-50000">30K - 50K</option>
+                <option value="50000-999999">50K+</option>
+            </select>
+            <button class="btn cta" id="searchBtn" style="border-radius: 8px;">Find Elite Match</button>
+          </div>
+        </div>
+
+        <div class="heroRight" style="flex:1; display:flex; justify-content:center; align-items:center;">
+             <i class="fa-solid fa-trophy" style="font-size:100px; background: -webkit-linear-gradient(#d4af37, #f3d476); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 20px rgba(212,175,55,0.4)); animation: float 4s ease-in-out infinite;"></i>
+        </div>
+        <style> @keyframes float { 0% {transform: translateY(0px);} 50% {transform: translateY(-15px);} 100% {transform: translateY(0px);} } </style>
+      </section>
+
+      <div id="view-dashboard" class="view">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:30px;">
+            <div class="card stat-card">
+                <div class="stat-icon"><i class="fa-solid fa-briefcase-alt"></i></div>
+                <div>
+                    <div class="stat-value" id="statJobs">0</div>
+                    <div class="stat-label">Active Job Posts</div>
+                </div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-icon" style="background:var(--card-bg); color:#00d4ff; box-shadow: 0 0 15px rgba(0, 212, 255, 0.2);"><i class="fa-solid fa-file-invoice"></i></div>
+                <div>
+                    <div class="stat-value" style="background: linear-gradient(90deg, var(--text-main), #00d4ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent;" id="statApps">0</div>
+                    <div class="stat-label" id="statAppsLabel">Total Applications</div>
+                </div>
+            </div>
+        </div>
+        
+        <h3 style="margin-top:30px; margin-bottom:15px; display:flex; align-items:center; gap:10px;">
+            <i class="fa-solid fa-gem" style="color:var(--gold); font-size: 20px;"></i> 
+            <span style="font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 800; background: linear-gradient(to right, var(--gold), var(--gold-light)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                Elite Recent Listings
+            </span>
+        </h3>
+
+        <div id="recentJobs" class="jobList"></div>
+      </div>
+      
+      <div id="view-map" class="view" style="display:none">
+          <h3 style="color:var(--text-main); margin-bottom:15px;"><i class="fa-solid fa-map-location-dot" style="color:#00d4ff;"></i> Jobs Near Me (Map View)</h3>
+          <p style="color:var(--muted); font-size:13px; margin-bottom:20px;">View available job locations on the map below (Simulated 3D Look).</p>
+          <div id="map-container" class="card">
+             <iframe id="map-iframe" src="" title="Simulated 3D Map of Jobs Near Me" allowfullscreen></iframe>
+          </div>
+      </div>
+
+      <div id="view-about-me" class="view" style="display:none">
+          <div id="aboutMeCard" class="card about-me-card">
+            </div>
+          
+          <div id="creatorEditFormContainer" class="card" style="display:none; margin-top: 30px;">
+            <h3 id="creatorFormTitle"><i class="fa-solid fa-pen-to-square" style="color:var(--gold)"></i> Edit Creator Profile</h3>
+            <p style="color:var(--muted); font-size:13px; margin-bottom:20px;">Update your master profile details here.</p>
+            <form id="creatorProfileForm">
+                <input type="hidden" id="creator_profile_id" value="p1"> 
+                <h4 style="font-size:16px; margin-top:10px; color:var(--text-main); font-family: 'Inter', sans-serif;"><i class="fa-solid fa-user-tag"></i> Profile Details</h4>
+                <div class="row" style="margin-top:15px;">
+                    <div style="flex:1"><input id="creator_name" placeholder="Your Name" required></div>
+                    <div style="flex:1"><input id="creator_current_role" placeholder="Current Role / Title" required></div>
+                </div>
+                
+                <h4 style="font-size:16px; margin-top:30px; color:var(--text-main); font-family: 'Inter', sans-serif;"><i class="fa-solid fa-camera"></i> Profile Photo</h4>
+                <div style="margin-top:15px;">
+                    <input type="file" id="creator_photo" accept="image/*" title="Upload new professional photo">
+                </div>
+
+                <h4 style="font-size:16px; margin-top:30px; color:var(--text-main); font-family: 'Inter', sans-serif;"><i class="fa-solid fa-feather-pointed"></i> About Me / Experience</h4>
+                <div style="margin-top:15px;">
+                    <textarea id="creator_description" placeholder="Describe your experience and goals..." style="height:120px;" required></textarea>
+                </div>
+
+                <div class="actionsRow" style="margin-top:25px; display:flex; justify-content:flex-end; gap:15px;">
+                    <button type="button" class="btn" id="cancelCreatorEdit">Cancel</button>
+                    <button type="submit" class="btn cta" id="updateCreatorBtn">Update Profile <i class="fa-solid fa-cloud-arrow-up"></i></button>
+                </div>
+            </form>
+          </div>
+          <div id="adminSettingsCard" class="card" style="margin-top: 30px;">
+            <h3><i class="fa-solid fa-user-shield"></i> Admin Settings</h3>
+            <p style="color:var(--muted); font-size:13px; margin-bottom:20px;">Manage local admin access and data operations.</p>
+            <div class="heroActions" style="display:flex; gap:15px; margin-top: 20px; flex-wrap: wrap;">
+                <button class="btn" id="exportBtn"><i class="fa-solid fa-cloud-arrow-down"></i> Backup Data</button>
+                <button class="btn" id="importBtn"><i class="fa-solid fa-cloud-arrow-up"></i> Restore Data</button>
+            </div>
+
+            <div class="row" style="margin-top:30px; border-top:1px solid var(--border); padding-top:20px; flex-wrap: wrap;">
+                <h4 style="width:100%; font-size:16px; margin-top:0px; color:var(--text-main); font-family: 'Inter', sans-serif;"><i class="fa-solid fa-user-plus"></i> Create New Admin</h4>
+                <input id="adminEmail" placeholder="New Admin Email">
+                <input id="adminPass" placeholder="Password">
+                <button class="btn" id="createAdmin">Create</button>
+            </div>
+            <div style="margin-top:30px; border-top:1px solid var(--border); padding-top:20px;">
+                <p class="tiny" style="color:var(--red)">Danger Zone (Admin Only)</p>
+                <button class="btn" style="border-color:var(--red); color:var(--red); background:rgba(255,0,0,0.05)" id="clearAll"><i class="fa-solid fa-trash"></i> Delete All Data</button>
+            </div>
+          </div>
+      </div>
+      <div id="view-add" class="view" style="display:none">
+        <div class="card">
+            <h3><i class="fa-solid fa-pen-nib" style="color:var(--gold)"></i> Post a New Elite Job</h3>
+            <p style="color:var(--muted); font-size:13px; margin-bottom:20px;">Fill in the details to reach thousands of candidates.</p>
+            <form id="jobForm">
+              <div class="row">
+                <div style="flex:2"><input id="f_title" placeholder="Job Title (e.g. Senior Chef)" required></div>
+                <div style="flex:1"><input id="f_company" placeholder="Company Name"></div>
+              </div>
+              <div class="row" style="margin-top:15px;">
+                <select id="f_category" style="flex:1" required onchange="toggleOtherCategory()"></select>
+                <input id="f_salary" type="number" placeholder="Monthly Salary (₹)" required style="flex:1">
+                <input id="f_location" placeholder="City / Area" required style="flex:1">
+              </div>
+              
+              <div id="f_other_category_container" style="margin-top:15px; display:none;">
+                  <input id="f_other_category_input" placeholder="Enter custom category name (e.g., HVAC Technician)">
+              </div>
+
+              <div style="margin-top:15px;">
+                <textarea id="f_description" placeholder="Describe the role, requirements and timings..." style="height:120px;"></textarea>
+              </div>
+              <div class="actionsRow" style="margin-top:25px; display:flex; justify-content:flex-end; gap:15px;">
+                <button type="button" class="btn" id="clearForm">Reset Form</button>
+                <button type="submit" class="btn cta" id="saveJobBtn">Publish Elite Job <i class="fa-solid fa-arrow-right"></i></button>
+              </div>
+            </form>
+        </div>
+      </div>
+
+      <div id="view-jobs" class="view" style="display:none">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h3 style="color:var(--text-main);">All Available Elite Jobs</h3>
+            <div style="font-size:12px; color:var(--muted)"><i class="fa-solid fa-filter"></i> Showing all active listings</div>
+        </div>
+        <div id="allJobs" class="jobList"></div>
+      </div>
+      
+      <div id="view-saved-jobs" class="view" style="display:none">
+        <h3 style="color:var(--text-main); margin-bottom:15px;"><i class="fa-solid fa-heart" style="color:var(--red);"></i> Your Saved Jobs</h3>
+        <p style="color:var(--muted); font-size:13px; margin-bottom:20px;">These are the jobs you have liked for quick access and later application.</p>
+        <div id="savedJobsList" class="jobList"></div>
+      </div>
+
+      <div id="view-apps" class="view" style="display:none">
+        <h3 id="appViewTitle" style="color:var(--text-main); margin-bottom:15px;"></h3>
+        <div id="appList" class="jobList"></div>
+      </div>
+      
+      <div id="view-notifications" class="view" style="display:none">
+        <h3 style="color:var(--text-main); margin-bottom:15px;"><i class="fa-solid fa-bell" style="color:var(--gold);"></i> Your Notifications (Hire Requests)</h3>
+        <p style="color:var(--muted); font-size:13px; margin-bottom:20px;">View all pending and received Hire Requests here.</p>
+        <div id="notificationsViewList"></div>
+      </div>
+
+
+      <div id="view-profiles" class="view" style="display:none">
+        <h3 style="color:var(--text-main); margin-bottom:15px;"><i class="fa-solid fa-user-gear" style="color:var(--gold)"></i> Verified Candidate Profiles</h3>
+        <p style="color:var(--muted); font-size:13px; margin-bottom:20px;">Profiles are built using verified job history submitted by the candidates.</p>
+        <div id="profilesList">
+            </div>
+      </div>
+      <div id="view-submit-history" class="view" style="display:none">
+        <div class="card">
+            <h3 id="historyFormTitle"><i class="fa-solid fa-clipboard-check" style="color:var(--gold)"></i> Submit Previous Job History</h3>
+            <p style="color:var(--muted); font-size:13px; margin-bottom:20px;" id="historyFormSubtitle">Apni pichhli job ki details bharein. Yeh data aapki profile ki vishwasniyata badhane mein madad karega.</p>
+            <form id="jobHistoryForm">
+                <input type="hidden" id="history_profile_id"> <h4 style="font-size:16px; margin-top:10px; color:var(--text-main); font-family: 'Inter', sans-serif;"><i class="fa-solid fa-user-tag"></i> Your Current Details</h4>
+                <div class="row" style="margin-top:15px;">
+                    <div style="flex:1"><input id="history_name" placeholder="Your Name" required></div>
+                    <div style="flex:1"><input id="history_current_role" placeholder="Desired Role / New Role" required></div>
+                </div>
+                
+                <h4 style="font-size:16px; margin-top:30px; color:var(--text-main); font-family: 'Inter', sans-serif;"><i class="fa-solid fa-camera"></i> Profile Photo (Optional)</h4>
+                <div style="margin-top:15px;">
+                    <input type="file" id="history_photo" accept="image/*" title="Upload your professional photo">
+                </div>
+
+                <h4 style="font-size:16px; margin-top:30px; color:var(--text-main); font-family: 'Inter', sans-serif;"><i class="fa-solid fa-building-user"></i> Previous Job Details</h4>
+                <div class="row" style="margin-top:15px;">
+                    <div style="flex:1"><input id="history_prev_company" placeholder="Previous Company/Shop Name" required></div>
+                    <div style="flex:1"><input id="history_prev_role" placeholder="Your Role at Previous Job (e.g., Salesman)" required></div>
+                </div>
+                <div class="row" style="margin-top:15px;">
+                    <div style="flex:1"><input id="history_prev_location" placeholder="Previous Job Location" required></div>
+                    <div style="flex:1"><input id="history_manager_email" type="email" placeholder="Previous Manager's Email (for validation)" required></div>
+                </div>
+                
+                <h4 style="font-size:16px; margin-top:30px; color:var(--text-main); font-family: 'Inter', sans-serif;"><i class="fa-solid fa-feather-pointed"></i> Work Description</h4>
+                <div style="margin-top:15px;">
+                    <textarea id="history_description" placeholder="Pichhle kaam ke baare mein vistar se likhein (Kya karte थे? Kitne saal kiya?)." style="height:120px;" required></textarea>
+                </div>
+
+                <div class="actionsRow" style="margin-top:25px; display:flex; justify-content:flex-end; gap:15px;">
+                    <button type="button" class="btn" id="clearHistoryForm">Reset Form</button>
+                    <button type="submit" class="btn cta" id="submitHistoryBtn">Submit Job History <i class="fa-solid fa-paper-plane"></i></button>
+                </div>
+            </form>
+        </div>
+      </div>
+      <div class="footer">
+        <div>JobGold Portal © 2025 • Secured Client-Side Application</div>
+        <div style="margin-top: 8px; font-size: 12px; color: var(--muted);">
+            Made with <i class="fa-solid fa-heart" style="color:var(--red); animation: pulse 1.5s infinite;"></i> by <span style="color:var(--gold); font-weight:600;">Naresh Suthar (The Designer)</span>
+        </div>
+        <div class="footer-icons">
+            <a href="mailto:ns680578@gmail.com" target="_blank" title="Email Naresh Suthar"><i class="fa-solid fa-envelope"></i></a>
+            <i class="fa-brands fa-twitter" title="Twitter Profile"></i>
+            <a href="https://www.instagram.com/naresh_makad" target="_blank" title="Instagram: @naresh_makad"><i class="fa-brands fa-instagram"></i></a>
+            <a href="https://www.linkedin.com/in/naresh-suthar-579b00365" target="_blank" title="LinkedIn Profile"><i class="fa-brands fa-linkedin"></i></a>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div id="applyModal" class="modal">
+  <div class="card" style="width:500px; border:1px solid var(--gold); box-shadow: 0 0 50px rgba(212,175,55,0.2);">
+    <h3 id="applyJobTitle" style="color:var(--gold); font-size:22px;">Apply Now</h3>
+    <div style="margin-top:20px; display:flex; flex-direction:column; gap:15px;">
+      <input id="app_name" placeholder="Your Full Name">
+      <input id="app_email" placeholder="Email Address">
+      <input id="app_phone" placeholder="Phone Number">
+      <textarea id="app_skills" placeholder="Skills, Experience or Cover Note..." style="height:100px;"></textarea>
+      
+      <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:15px;">
+        <button class="btn" id="closeApply">Cancel</button>
+        <button class="btn cta" id="submitApply">Submit Application</button>
+      </div>
+      <div id="applyMsg" style="text-align:center; margin-top:10px; font-size:13px; color:var(--gold);"></div>
+    </div>
+  </div>
+</div>
+
+<div id="hireModal" class="modal">
+  <div class="card" style="width:400px; border:1px solid var(--green); box-shadow: 0 0 50px rgba(0, 204, 102, 0.2);">
+    <h3 style="color:var(--green); font-size:22px;">Send Hire Request</h3>
+    <p style="color:var(--muted); font-size:14px;">You are sending a hiring offer to <strong id="hireCandidateName" style="color:var(--text-main)"></strong>.</p>
+    <div style="margin-top:20px; display:flex; flex-direction:column; gap:15px;">
+      <input id="hire_job_title" placeholder="Job Title (e.g. Senior Chef)" required>
+      <input id="hire_salary" type="number" placeholder="Proposed Monthly Salary (₹)" required>
+      <textarea id="hire_message" placeholder="Short Message/Offer Details..." style="height:80px;"></textarea>
+      
+      <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:15px;">
+        <button class="btn" id="closeHireModal">Cancel</button>
+        <button class="btn cta" style="background:var(--green); color:#000;" id="submitHireRequest">Send Offer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="forgotPassModal" class="modal">
+  <div class="card" style="width:400px; border:1px solid #00d4ff; box-shadow: 0 0 50px rgba(0, 212, 255, 0.2);">
+    <h3 style="color:#00d4ff; font-size:22px;">Forgot Password</h3>
+    <p style="color:var(--muted); font-size:14px;">Enter your registered email address to receive a password reset link.</p>
+    <div style="margin-top:20px; display:flex; flex-direction:column; gap:15px;">
+      <input id="forgotEmail" placeholder="Registered Email" type="email" required>
+      
+      <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:15px;">
+        <button class="btn" id="closeForgot">Cancel</button>
+        <button class="btn cta" style="background:#00d4ff; color:#000; border-color:#00d4ff; box-shadow:none;" id="submitForgotRequest">Send Reset Link</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="authModal" class="modal" aria-hidden="true">
+    <div class="auth-wrapper">
+        <button id="closeAuth" class="modal-close-btn"><i class="fa-solid fa-xmark"></i></button>
+        <div class="background-shape"></div>
+        <div class="secondary-shape"></div>
+        <div class="credentials-panel signin">
+            <h2 class="slide-element">Login</h2>
+            <div class="form-wrapper">
+                <div class="field-wrapper slide-element"><input type="email" id="loginEmail" required><label>Email</label><i class="fa-solid fa-at"></i></div>
+                <div class="field-wrapper slide-element">
+                    <input type="password" id="loginPass" required><label>Password</label>
+                    <i class="fa-solid fa-eye-slash pass-toggle" id="toggleLoginPass"></i>
+                </div>
+                <div class="field-wrapper slide-element"><button class="submit-button" id="doLogin" type="button">Login</button></div>
+                <div class="switch-link slide-element">
+                    <p style="margin-bottom: 5px;"><a href="#" class="forgot-trigger" style="font-size: 13px;">Forgot Password?</a></p>
+                    <p>Don't have an account? <br> <a href="#" class="register-trigger">Sign Up</a></p>
+                </div>
+            </div>
+        </div>
+        <div class="welcome-section signin"><h2 class="slide-element">WELCOME BACK!</h2></div>
+        <div class="credentials-panel signup">
+            <h2 class="slide-element">Register</h2>
+            <div class="form-wrapper">
+                <div class="field-wrapper slide-element"><input type="text" id="regName" required><label>Username</label><i class="fa-solid fa-user-astronaut"></i></div>
+                <div class="field-wrapper slide-element"><input type="email" id="regEmail" required><label>Email</label><i class="fa-solid fa-at"></i></div>
+                <div class="field-wrapper slide-element">
+                    <input type="password" id="regPass" required><label>Password</label>
+                    <i class="fa-solid fa-eye-slash pass-toggle" id="toggleRegPass"></i>
+                </div>
+                <div class="field-wrapper slide-element">
+                    <select id="regRole" required>
+                        <option value="" disabled selected>--- Select Role ---</option>
+                        <option value="jobseeker">Job Seeker (Candidate)</option>
+                        <option value="employer">Employer (Hiring Partner)</option>
+                    </select>
+                    <label>Role</label><i class="fa-solid fa-user-tie"></i>
+                </div>
+                <div class="field-wrapper slide-element"><button class="submit-button" id="doRegister" type="button">Register</button></div>
+                <div class="switch-link slide-element"><p>Already have an account? <br> <a href="#" class="login-trigger">Sign In</a></p></div>
+            </div>
+        </div>
+        <div class="welcome-section signup"><h2 class="slide-element">WELCOME!</h2></div>
+    </div>
+</div>
+
+<script>
+/* ==================== LOGIC ==================== */
+const KEY_JOBS = 'jg_jobs_v3_stylish';
+const KEY_APPS = 'jg_apps_v3';
+const KEY_USERS = 'jg_users_v3';
+const KEY_SESSION = 'jg_session_v3';
+const KEY_THEME = 'jg_theme_v1';
+const KEY_CANDIDATE_PROFILES = 'jg_candidate_profiles_v1'; 
+const KEY_HIRE_REQUESTS = 'jg_hire_requests_v1'; 
+const KEY_SAVED_JOBS = 'jg_saved_jobs_v1'; 
+const KEY_APP_STATUS = 'jg_app_status_v1'; // Application status: Submitted, Pending, Accepted, Rejected
+
+let isListening = false; // State for voice search
+
+const uid = ()=> Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const get = k => JSON.parse(localStorage.getItem(k) || '[]');
+const set = (k,v) => localStorage.setItem(k, JSON.stringify(v));
+const trim = s => (s||'').trim();
+const $ = id => document.getElementById(id);
+
+/* --- HARDCODED ADMIN SETUP (Naresh Suthar's Details) --- */
+const LOGIN_ADMIN_EMAIL = "admin@jobgold.com"; 
+const DISPLAY_CREATOR_EMAIL = "ns680578@gmail.com"; 
+
+/* --- DUMMY PROFILES (Simulated verified data) --- */
+const initialDummyProfiles = [
+    { id: 'p7', name: 'Amit Sharma', currentRole: 'Chef', prevCompany: 'Dhaba Central', prevRole: 'Waiter', experience: '3 years experience, strong team player. Highly recommended.', photoUrl: 'https://i.pravatar.cc/150?img=6', status: 'Verified' },
+    { id: 'p2', name: 'Priya Verma', currentRole: 'Senior Sales Executive', prevCompany: 'Fashion Hub', prevRole: 'Trainee', experience: '5 years in retail, excellent customer interaction skills. Looking for growth opportunities....', photoUrl: 'https://i.pravatar.cc/150?img=31', status: 'Verified' },
+    { id: 'p3', name: 'Ramesh Kumar', currentRole: 'Logistics Manager', prevCompany: 'City Transport Co.', prevRole: 'Driver', experience: 'Skilled driver, managed local deliveries efficiently.', photoUrl: 'https://i.pravatar.cc/150?img=12', status: 'Verified' },
+    { id: 'p4', name: 'Neha Gupta', currentRole: 'Senior Hair Stylist', prevCompany: 'Glamour Salon', prevRole: 'Helper', experience: '3 years experience in unisex cutting and styling. Customer service focused....', photoUrl: 'https://i.pravatar.cc/150?img=5', status: 'Verified' }, 
+    { id: 'p6', name: 'Khushi Mishra', currentRole: 'CEO Of Nareshjob', prevCompany: 'GoldJod', prevRole: 'CEO', experience: 'B.Tech CSE Student | Aspiring Software Engineer | Web Development | Python | DSA....', photoUrl: 'https://i.pravatar.cc/150?img=42', status: 'Verified' }, 
+    { 
+        id: 'p1', 
+        userId: 'p1_creator_id', 
+        name: 'Naresh Suthar', 
+        currentRole: 'Creator | Full Stack Developer', 
+        prevCompany: 'JobGold Portal', 
+        prevRole: 'Creator', 
+        experience: 'As the **Creator and Designer** of the JobGold Portal, I specialize in crafting ultra-premium, high-performance web applications with an elite UI/UX focus. Proficient in HTML, CSS (Advanced), JavaScript, and client-side storage logic. Seeking challenging Full Stack/Frontend Development roles and innovative design projects.', 
+        photoUrl: 'https://i.pravatar.cc/150?u=creator', 
+        status: 'Verified'
+    },
+];
+
+/* --- THEME LOGIC --- */
+function initTheme(){
+    const stored = localStorage.getItem(KEY_THEME) || 'dark';
+    document.documentElement.setAttribute('data-theme', stored);
+    updateThemeIcon(stored);
+}
+
+function toggleTheme(){
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem(KEY_THEME, next);
+    updateThemeIcon(next);
+}
+
+function updateThemeIcon(theme){
+    const i = $('themeIcon');
+    if(theme === 'light'){
+        i.classList.remove('fa-sun');
+        i.classList.add('fa-moon');
+    } else {
+        i.classList.remove('fa-moon');
+        i.classList.add('fa-sun');
+    }
+}
+
+// Attach Event
+$('themeToggle').onclick = toggleTheme;
+initTheme(); // Run on start
+
+/* --- TOAST LOGIC --- */
+function showToast(msg, type='info'){
+    const c = $('toast-container');
+    const t = document.createElement('div');
+    t.className = `toast ${type}`;
+    // Simple icon check for toast
+    const iconClass = type==='success'?'fa-check-circle':type==='error'?'fa-exclamation-circle':'fa-info-circle';
+    t.innerHTML = `<i class="fa-solid ${iconClass}"></i> ${msg}`;
+    c.appendChild(t);
+    setTimeout(()=> t.remove(), 3000);
+}
+
+// === NEW STYLISH CATEGORY CONFIG (Slightly improved icons) ===
+const catConfig = {
+    'Retail & Shop': { icon: 'fa-bag-shopping', emoji: '🛍️' },
+    'Hotel & Food': { icon: 'fa-utensils', emoji: '🍽️' },
+    'Driver & Transport': { icon: 'fa-truck-field', emoji: '🚖' }, 
+    'Technician': { icon: 'fa-screwdriver-wrench', emoji: '🛠️' },
+    'Delivery': { icon: 'fa-motorcycle', emoji: '📦' }, 
+    'Salon & Beauty': { icon: 'fa-scissors', emoji: '💇' },
+    'Office & Admin': { icon: 'fa-laptop-file', emoji: '💼' },
+    'Security & Other': { icon: 'fa-shield-halved', emoji: '🛡️' }
+};
+const cats = Object.keys(catConfig);
+
+/* --- DATA & INITIALIZATION --- */
+(function initApp(){
+  if (!localStorage.getItem(KEY_JOBS)){
+    set(KEY_JOBS, [
+      {id:uid(),title:'Clothing Store Salesman',company:'Fashion Hub',category:'Retail & Shop',salary:'12000',location:'Main Market',description:'Need active salesman for cloth shop. Morning 9 to 8 PM.',created:new Date().toISOString(), creatorId: 'p1_creator_id'},
+      {id:uid(),title:'Waiter / Server',company:'Royal Rasoi Hotel',category:'Hotel & Food',salary:'15000',location:'Station Road',description:'Experienced waiter needed. Food and accommodation provided.',created:new Date().toISOString(), creatorId: 'p1_creator_id'},
+      {id:uid(),title:'Bike Delivery Partner',company:'FastDrop',category:'Delivery',salary:'18000',location:'City Wide',description:'Deliver parcels. Must have own bike and license. Weekly payout.',created:new Date().toISOString(), creatorId: 'p1_creator_id'},
+      {id:uid(),title:'Hair Stylist',company:'Glamour Unisex Salon',category:'Salon & Beauty',salary:'22000',location:'Civil Lines',description:'Unisex hair cutter and stylist. Minimum 1 year experience.',created:new Date().toISOString(), creatorId: 'p1_creator_id'},
+      {id:uid(),title:'Personal Driver',company:'Private Home',category:'Driver & Transport',salary:'20000',location:'Model Town',description:'Driver for family car. Automatic car experience preferred.',created:new Date().toISOString(), creatorId: 'p1_creator_id'},
+      {id:uid(),title:'Office Assistant',company:'Tech Solutions',category:'Office & Admin',salary:'14000',location:'IT Park',description:'Basic computer work, filing and tea/coffee management.',created:new Date().toISOString(), creatorId: 'p1_creator_id'},
+      {id:uid(),title:'AC Technician Helper',company:'Cool Services',category:'Technician',salary:'10000',location:'Industrial Area',description:'Helper needed for AC repair. Freshers can apply.',created:new Date().toISOString(), creatorId: 'p1_creator_id'},
+      {id:uid(),title:'Security Guard',company:'SafeSecure Agency',category:'Security & Other',salary:'16000',location:'Mall Road',description:'Night shift security guard for shopping mall.',created:new Date().toISOString(), creatorId: 'p1_creator_id'}
+    ]);
+  }
+  let users = get(KEY_USERS);
+  
+  // Custom Admin/Creator Check
+  const creatorProfile = initialDummyProfiles.find(p => p.id === 'p1');
+  const customAdminExists = users.some(u => u.email === LOGIN_ADMIN_EMAIL);
+
+  if (creatorProfile) {
+    if (!customAdminExists) {
+        // Add Creator/Admin profile using LOGIN_ADMIN_EMAIL
+        users.push({ 
+            id: creatorProfile.userId,
+            name: creatorProfile.name, 
+            email: LOGIN_ADMIN_EMAIL, 
+            pass: 'admin123', 
+            role: 'admin' // Set role to admin
+        });
+    } else {
+        const adminIndex = users.findIndex(u => u.email === LOGIN_ADMIN_EMAIL);
+        if (users[adminIndex].role !== 'admin' || users[adminIndex].id !== creatorProfile.userId) {
+            users[adminIndex].role = 'admin';
+            users[adminIndex].id = creatorProfile.userId;
+        }
+    }
+    set(KEY_USERS, users);
+  }
+
+  // Fallback initial admin if no users exist
+  if(users.length === 0){
+      set(KEY_USERS, [{id:uid(), name:'Admin', email:LOGIN_ADMIN_EMAIL, pass:'admin123', role:'admin'}]);
+  }
+  
+  // === PROFILE INITIALIZATION FIX ===
+  let currentProfiles = get(KEY_CANDIDATE_PROFILES);
+  let changesMade = false;
+  
+  initialDummyProfiles.forEach(newProfile => {
+      const existingIndex = currentProfiles.findIndex(p => p.id === newProfile.id);
+      
+      if (existingIndex === -1) {
+          currentProfiles.push(newProfile);
+          changesMade = true;
+      } else if (newProfile.id === 'p1') {
+          const updatedPhotoUrl = (currentProfiles[existingIndex].photoUrl && currentProfiles[existingIndex].photoUrl.startsWith('data:')) 
+                                  ? currentProfiles[existingIndex].photoUrl 
+                                  : newProfile.photoUrl;
+
+          const updatedProfile = {...currentProfiles[existingIndex], ...newProfile, photoUrl: updatedPhotoUrl};
+          if (JSON.stringify(currentProfiles[existingIndex]) !== JSON.stringify(updatedProfile)) {
+              currentProfiles[existingIndex] = updatedProfile;
+              changesMade = true;
+          }
+      }
+  });
+
+  if (changesMade || currentProfiles.length === 0) {
+      if(currentProfiles.length === 0) {
+          set(KEY_CANDIDATE_PROFILES, initialDummyProfiles);
+      } else {
+          set(KEY_CANDIDATE_PROFILES, currentProfiles);
+      }
+  }
+  
+  // Initialize App Status if empty
+  if (!localStorage.getItem(KEY_APP_STATUS)){
+    set(KEY_APP_STATUS, []); 
+  }
+
+})();
+
+const views = document.querySelectorAll('.view');
+const navBtns = document.querySelectorAll('.nav button, .topnav .navlinks button');
+
+navBtns.forEach(btn => btn.addEventListener('click', () => {
+    if(btn.dataset.view) showView(btn.dataset.view);
+}));
+
+function showView(name){
+    // Determine the base view ID to display. For role-specific apps, use 'view-apps'.
+    const viewId = (name === 'employer-apps' || name === 'jobseeker-apps') ? 'view-apps' : `view-${name}`;
+
+    views.forEach(v => v.style.display = (v.id === viewId) ? 'block' : 'none');
+    document.querySelectorAll('.nav button, .topnav .navlinks button').forEach(b => {
+        if(b.dataset.view === name) b.classList.add('active');
+        else b.classList.remove('active');
+    });
+    
+    // Hide notification popup when switching views
+    $('notification-popup').style.display = 'none';
+
+    if(name==='dashboard') renderDashboard();
+    if(name==='jobs') renderAllJobs();
+    if(name==='employer-apps') renderEmployerApplications(); 
+    if(name==='jobseeker-apps') renderJobseekerApplications(); 
+    if(name==='profiles') renderCandidateProfiles(); 
+    if(name==='about-me') renderAboutMe(); 
+    if(name==='submit-history') checkUserForHistorySubmission(); 
+    if(name==='saved-jobs') renderSavedJobs(); 
+    if(name==='notifications') renderNotificationsView(); 
+    if(name==='map') renderMapView(); // FIX: Ensure map view is rendered
+    if(name==='add') {
+        const s = get(KEY_SESSION);
+        if(!s || (s.role!=='employer' && s.role!=='admin')) { 
+            showToast('Employers only! Please login as Employer.', 'error');
+            showView('dashboard');
+        } else {
+            prepareAddForm();
+        }
+    }
+}
+
+// --- NEW: Map View Renderer (FIXED) ---
+function renderMapView() {
+    // This ensures the map iframe is loaded when the view is active.
+    const mapIframe = document.querySelector('#map-iframe');
+    const mapUrl = 'https://nareshmakad.github.io/3d-map-simulation';
+    if (mapIframe) {
+         if (mapIframe.src !== mapUrl) {
+            mapIframe.src = mapUrl;
+        }
+    } else {
+        console.error("Map iframe not found.");
+    }
+}
+// --- END NEW: Map View Renderer ---
+
+// --- Creator Edit Form Functions (NEW) ---
+
+window.openCreatorEdit = () => {
+    const session = get(KEY_SESSION);
+    const isCreatorLoggedIn = session && session.id === 'p1_creator_id' && session.email === LOGIN_ADMIN_EMAIL;
+
+    if (!isCreatorLoggedIn) {
+        return showToast('Only the Creator can edit this profile.', 'error');
+    }
+
+    const profile = get(KEY_CANDIDATE_PROFILES).find(p => p.id === 'p1');
+    if (!profile) return showToast('Creator Profile data not found.', 'error');
+
+    $('aboutMeCard').style.display = 'none';
+    $('adminSettingsCard').style.display = 'none';
+    $('creatorEditFormContainer').style.display = 'block';
+
+    $('creator_name').value = profile.name || '';
+    $('creator_current_role').value = profile.currentRole || '';
+    $('creator_description').value = profile.experience || '';
+    
+    window.scrollTo({top:0, behavior:'smooth'});
+};
+
+$('cancelCreatorEdit').onclick = () => {
+    $('creatorEditFormContainer').style.display = 'none';
+    renderAboutMe(); 
+};
+
+$('creatorProfileForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const s = get(KEY_SESSION);
+    if (!(s && s.email === LOGIN_ADMIN_EMAIL)) return showToast('Permission Denied.', 'error');
+
+    const profileId = $('creator_profile_id').value;
+    const name = trim($('creator_name').value);
+    const currentRole = trim($('creator_current_role').value);
+    const description = trim($('creator_description').value);
+    const photoFile = $('creator_photo').files[0];
+
+    let profiles = get(KEY_CANDIDATE_PROFILES);
+    let existingProfile = profiles.find(p => p.id === profileId);
+
+    if(!name || !currentRole || !description) {
+        return showToast('Please fill all required fields.', 'error');
+    }
+
+    let photoBase64 = existingProfile ? existingProfile.photoUrl : 'default-url';
+    if (photoFile) {
+        if (photoFile.size > 1024 * 1024 * 5) {
+            return showToast('Photo size must be less than 5MB.', 'error');
+        }
+        try {
+            photoBase64 = await getBase64(photoFile);
+        } catch (error) {
+            showToast('Error processing photo.', 'error');
+        }
+    }
+
+    const updatedData = {
+        name: name,
+        currentRole: currentRole,
+        experience: description,
+        photoUrl: photoBase64,
+        status: 'Verified',
+        prevCompany: existingProfile.prevCompany,
+        prevRole: existingProfile.prevRole,
+        prevLocation: existingProfile.prevLocation,
+        managerEmail: existingProfile.managerEmail,
+        id: profileId,
+        userId: existingProfile.userId
+    };
+
+    const profileIndex = profiles.findIndex(p => p.id === profileId);
+    if (profileIndex > -1) {
+        profiles[profileIndex] = updatedData;
+        set(KEY_CANDIDATE_PROFILES, profiles);
+        showToast('Creator Profile Updated Successfully!', 'success');
+    }
+    
+    $('creator_photo').value = ''; 
+    $('creatorEditFormContainer').style.display = 'none';
+    renderAboutMe(); 
+});
+
+
+function renderAboutMe() {
+    const profile = get(KEY_CANDIDATE_PROFILES).find(p => p.id === 'p1');
+    const session = get(KEY_SESSION);
+    
+    const isCreatorLoggedIn = session && session.id === 'p1_creator_id' && session.email === LOGIN_ADMIN_EMAIL;
+    
+    $('creatorEditFormContainer').style.display = 'none';
+    // ADMIN ACTIONS ARE HERE NOW
+    $('adminSettingsCard').style.display = isCreatorLoggedIn ? 'block' : 'none';
+
+    if (!profile) {
+        $('aboutMeCard').innerHTML = '<div style="text-align:center; padding:20px; color:var(--red);">Creator Profile data not found.</div>';
+        return;
+    }
+
+    let editButtonHtml = '';
+    if (isCreatorLoggedIn) {
+        editButtonHtml = `
+            <button class="btn profile-edit-btn" style="margin-top: 15px; max-width: 250px;" onclick="openCreatorEdit()">
+                <i class="fa-solid fa-camera"></i> Change Profile Photo
+            </button>
+            <button class="btn profile-edit-btn" style="margin-top: 10px; max-width: 250px;" onclick="openCreatorEdit()">
+                <i class="fa-solid fa-pen-to-square"></i> Edit My Profile
+            </button>
+        `;
+    }
+
+    $('aboutMeCard').innerHTML = `
+        <div class="about-me-header">
+            <h2 class="about-me-title"><i class="fa-solid fa-crown" style="color:var(--gold-light)"></i> Premium Profile: ${escapeHtml(profile.name)} (The Designer) ✨</h2>
+            </div>
+        
+        <div class="about-me-info">
+            <div class="about-me-photo-container">
+                <img src="${profile.photoUrl}" alt="${profile.name}" class="about-me-photo" onerror="this.onerror=null; this.src='https://i.pravatar.cc/150?u=fallback';" />
+            </div>
+            <div class="about-me-details">
+                <div class="detail-item"><i class="fa-solid fa-envelope"></i> Email: ${escapeHtml(DISPLAY_CREATOR_EMAIL)}</div>
+                <div class="detail-item"><i class="fa-solid fa-briefcase"></i> Role: ${escapeHtml(profile.currentRole)}</div>
+                <div class="detail-item"><i class="fa-solid fa-location-dot"></i> Location: Jodhpur, Rajasthan, India</div>
+                <div class="detail-item"><i class="fa-solid fa-globe"></i> Portfolio: Coming Soon</div>
+                
+                ${editButtonHtml} </div>
+        </div>
+
+        <div class="about-me-experience">
+            <h4>About Me</h4>
+            <p>${profile.experience.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')}</p>
+        </div>
+        
+        <div class="about-me-experience">
+            <h4>My Goal (मेरा लक्ष्य)</h4>
+            <p style="font-size:12px; color:var(--gold-light)">
+                गुणवत्ता और नए मुकामों पर ध्यान केंद्रित करते हुए, हर किसी को एक उच्च-स्तरीय, परेशानी मुक्त अनुभव प्रदान करना ही मेरा लक्ष्य और उद्देश्य है।
+            </p>
+        </div>
+    `;
+    $('aboutMeCard').style.display = 'block';
+}
+
+
+function checkUserForHistorySubmission() {
+    const s = get(KEY_SESSION);
+    if (!s || (s.role !== 'jobseeker' && s.role !== 'admin')) {
+        showToast('Please login as a Job Seeker or Admin to share job history.', 'error');
+        showView('dashboard');
+    } else {
+        $('history_profile_id').value = '';
+        $('historyFormTitle').innerHTML = '<i class="fa-solid fa-clipboard-check" style="color:var(--gold)"></i> Submit Previous Job History';
+        $('historyFormSubtitle').textContent = 'Apni pichhli job ki details bharein. Yeh data aapki profile ki vishwasniyata badhane mein madad karega.';
+        $('submitHistoryBtn').innerHTML = 'Submit Job History <i class="fa-solid fa-paper-plane"></i>';
+        
+        const existingProfile = get(KEY_CANDIDATE_PROFILES).find(p => p.userId === s.id);
+        if (existingProfile) {
+            $('history_profile_id').value = existingProfile.id;
+            $('history_name').value = existingProfile.name || s.name || '';
+            $('history_current_role').value = existingProfile.currentRole || '';
+            $('history_prev_company').value = existingProfile.prevCompany || '';
+            $('history_prev_role').value = existingProfile.prevRole || '';
+            $('history_prev_location').value = existingProfile.prevLocation || '';
+            $('history_manager_email').value = existingProfile.managerEmail || '';
+            $('history_description').value = existingProfile.experience || '';
+            
+            $('historyFormTitle').innerHTML = '<i class="fa-solid fa-pen-to-square" style="color:var(--gold)"></i> Edit Your Job History';
+            $('submitHistoryBtn').innerHTML = 'Update Profile <i class="fa-solid fa-cloud-arrow-up"></i>';
+        } else {
+             $('jobHistoryForm').reset();
+             $('history_name').value = s.name || ''; 
+        }
+    }
+}
+
+window.editProfile = (id) => {
+    const profile = get(KEY_CANDIDATE_PROFILES).find(p => p.id === id);
+    const session = get(KEY_SESSION);
+    const isCreator = profile.id === 'p1' && session.email === LOGIN_ADMIN_EMAIL;
+
+    if (!profile) return showToast('Profile not found for editing.', 'error');
+    
+    if (isCreator) {
+        showView('about-me');
+        return openCreatorEdit();
+    }
+    
+    // UPDATED: Admin can edit any profile
+    if (profile.userId !== session.id && session.role !== 'admin') {
+        return showToast('You can only edit your own profile.', 'error');
+    }
+
+    showView('submit-history');
+
+    $('history_profile_id').value = profile.id;
+    $('historyFormTitle').innerHTML = `<i class="fa-solid fa-pen-to-square" style="color:var(--gold)"></i> Edit Profile: ${profile.name}`;
+    $('historyFormSubtitle').textContent = 'Admin/Owner: Update the candidate\'s profile information.';
+    $('submitHistoryBtn').innerHTML = 'Update Profile <i class="fa-solid fa-cloud-arrow-up"></i>';
+    
+    $('history_name').value = profile.name || '';
+    $('history_current_role').value = profile.currentRole || '';
+    $('history_prev_company').value = profile.prevCompany || '';
+    $('history_prev_role').value = profile.prevRole || '';
+    $('history_prev_location').value = profile.prevLocation || '';
+    $('history_manager_email').value = profile.managerEmail || '';
+    $('history_description').value = profile.experience || '';
+    
+    window.scrollTo({top:0, behavior:'smooth'});
+};
+
+function toggleOtherCategory() {
+    const categorySelect = $('f_category');
+    const otherCategoryInput = $('f_other_category_input');
+    const otherCategoryContainer = $('f_other_category_container');
+
+    if (categorySelect.value === 'Other') {
+        otherCategoryContainer.style.display = 'block';
+        otherCategoryInput.setAttribute('required', 'required');
+    } else {
+        otherCategoryContainer.style.display = 'none';
+        otherCategoryInput.removeAttribute('required');
+        otherCategoryInput.value = ''; 
+    }
+}
+
+
+function popCats(){ 
+    ['f_category','searchCategory'].forEach(id=>{
+        const el=$(id); if(!el)return; 
+        
+        el.innerHTML = id==='f_category' 
+            ? '<option value="" disabled selected>--- Select Category ---</option>'
+            : '<option value="">✨ All Categories</option>';
+            
+        cats.forEach(c=> {
+            const conf = catConfig[c];
+            el.innerHTML+=`<option value="${c}">${conf.emoji} ${c}</option>`;
+        });
+        
+        if(id === 'f_category') {
+            el.innerHTML += `<option value="Other">💬 Other (Specify below)</option>`;
+        }
+    });
+}
+popCats();
+
+function checkSession(){
+    const s = get(KEY_SESSION);
+    const allNavButtons = document.querySelectorAll('.nav button, .topnav .navlinks button');
+    
+    if(s && s.email && !Array.isArray(s)){
+        $('guestNav').style.display='none';
+        $('userNav').style.display='flex';
+        $('userGreeting').textContent = s.name;
+        
+        let roleDisplay = s.role;
+        if (s.id === 'p1_creator_id' || s.email === LOGIN_ADMIN_EMAIL) {
+            roleDisplay = "Creator";
+        }
+        $('userRoleDisplay').textContent = roleDisplay;
+        $('statusIndicator').textContent = roleDisplay.toUpperCase();
+        
+        // --- NEW: Dynamic Sidebar Visibility ---
+        const userRole = s.role;
+        allNavButtons.forEach(btn => {
+            const requiredRoles = btn.dataset.role;
+            if (requiredRoles) {
+                const roles = requiredRoles.split(',');
+                if (roles.includes(userRole)) {
+                    btn.style.display = 'flex'; // Show for matched roles
+                } else {
+                    btn.style.display = 'none'; // Hide for unmatched roles
+                }
+            } else {
+                 btn.style.display = 'flex'; // Default to show if no data-role attribute
+            }
+        });
+        // --- END NEW: Dynamic Sidebar Visibility ---
+
+        // Show Post Job CTA only for Employer/Admin
+        if(s.role === 'employer' || s.role === 'admin') {
+             $('ctaApply').style.display = 'flex';
+        } else {
+             $('ctaApply').style.display = 'none';
+        }
+
+
+        // NEW: Update notification badge on login
+        updateNotificationBadge(); 
+    } else {
+        $('guestNav').style.display='flex';
+        $('userNav').style.display='none';
+        $('statusIndicator').textContent = "GUEST";
+        $('notificationCount').style.display = 'none'; // Hide badge for guests
+        
+        // Hide all role-specific buttons for guests (FIXED: Guest shouldn't see Saved Jobs/Notifications)
+        allNavButtons.forEach(btn => {
+            if (btn.dataset.role) {
+                 // Check if it's a role-specific button and hide it if guest
+                 const requiredRoles = btn.dataset.role;
+                 if (requiredRoles.includes('jobseeker') || requiredRoles.includes('employer')) {
+                    btn.style.display = 'none';
+                 }
+            }
+        });
+        
+        // Hide 'Post Job' button for guests
+        $('ctaApply').style.display = 'none';
+        
+        // Show 'Candidate Profiles' and 'Map' for guests
+        const profileBtn = document.querySelector('.nav button[data-view="profiles"]');
+        const mapBtn = document.querySelector('.nav button[data-view="map"]');
+        if (profileBtn) profileBtn.style.display = 'flex';
+        if (mapBtn) mapBtn.style.display = 'flex';
+    }
+}
+
+// --- NEW: Toggle Saved Job (Like) ---
+window.toggleSavedJob = (jobId) => {
+    const s = get(KEY_SESSION);
+    if (!s || s.role !== 'jobseeker') {
+        return showToast('Please login as a Job Seeker to save jobs.', 'error');
+    }
+
+    let savedJobs = get(KEY_SAVED_JOBS);
+    const jobIndex = savedJobs.findIndex(item => item.jobId === jobId && item.userId === s.id);
+
+    if (jobIndex > -1) {
+        // Job is already saved, remove it
+        savedJobs.splice(jobIndex, 1);
+        showToast('Job removed from Saved List.', 'info');
+    } else {
+        // Job is not saved, add it
+        savedJobs.push({ jobId: jobId, userId: s.id, dateSaved: new Date().toISOString() });
+        showToast('Job saved to your list!', 'success');
+    }
+    set(KEY_SAVED_JOBS, savedJobs);
+    
+    // Rerender the current view to update the heart icon
+    const currentView = document.querySelector('.nav button.active')?.dataset.view;
+    if (currentView === 'jobs' || currentView === 'dashboard') {
+        renderAllJobs();
+        renderDashboard(); 
+    } else if (currentView === 'saved-jobs') {
+        renderSavedJobs();
+    }
+}
+
+// --- NEW: Render Saved Jobs View ---
+function renderSavedJobs() {
+    const s = get(KEY_SESSION);
+    const el = $('savedJobsList');
+    el.innerHTML = '';
+    
+    if (!s || s.role !== 'jobseeker') {
+        el.innerHTML = '<div style="padding:20px; text-align:center;">Only Job Seekers can view their saved jobs. Please login.</div>';
+        return;
+    }
+
+    const savedJobsData = get(KEY_SAVED_JOBS).filter(item => item.userId === s.id);
+    
+    if(savedJobsData.length === 0){ 
+        el.innerHTML='<div style="text-align:center; padding:20px; color:var(--muted)">You have not saved any jobs yet.</div>'; 
+        return; 
+    }
+    
+    const allJobs = get(KEY_JOBS);
+    const savedJobs = allJobs.filter(job => savedJobsData.some(saved => saved.jobId === job.id));
+
+    renderJobsList(savedJobs, el);
+}
+
+
+function renderJobsList(jobs, targetEl){
+    targetEl.innerHTML = '';
+    let session = get(KEY_SESSION);
+    if(Array.isArray(session)) session = null;
+
+    const isAdmin = session && session.role === 'admin';
+    const isEmployer = session && session.role === 'employer';
+    const isJobseeker = session && session.role === 'jobseeker';
+    const userRole = session ? session.role : 'guest';
+    const userId = session ? session.id : null;
+    const userEmail = session ? session.email : null;
+    
+    const savedJobs = isJobseeker ? get(KEY_SAVED_JOBS).filter(item => item.userId === userId).map(item => item.jobId) : [];
+    const appliedJobIds = isJobseeker ? get(KEY_APPS).filter(a => a.email === userEmail).map(a => a.jobId) : []; 
+
+    if(!jobs.length){ targetEl.innerHTML=`<div style="text-align:center; padding:20px; color:var(--muted)">No jobs found matching your criteria.</div>`; return; }
+
+    jobs.slice().reverse().forEach(j => {
+        const el = document.createElement('div');
+        el.className = 'job';
+        
+        let actionButtons = '';
+        const isJobOwner = j.creatorId === userId; 
+        const isApplied = appliedJobIds.includes(j.id); 
+
+        if(isAdmin || (isEmployer && isJobOwner)){ 
+            actionButtons = `
+                <div class="action-row">
+                    <button class="action-btn edit" onclick="editJob('${j.id}')" title="Edit Job"><i class="fa-solid fa-pen-to-square"></i></button>
+                    <button class="action-btn del" onclick="deleteJob('${j.id}')" title="Delete Job"><i class="fa-solid fa-trash-can"></i></button>
+                </div>
+            `;
+        } 
+        else if (userRole === 'jobseeker' || !session || userRole === 'guest') { 
+            const isLiked = savedJobs.includes(j.id);
+            const likeAction = isJobseeker ? `onclick="toggleSavedJob('${j.id}')"` : `onclick="showToast('Please login as Job Seeker to save jobs.', 'error')"`;
+
+            if (isJobseeker && isApplied) {
+                 actionButtons = `
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <i class="fa-solid fa-heart like-job-icon ${isLiked ? 'liked' : 'unliked'}" ${likeAction} title="${isLiked ? 'Remove from Saved' : 'Save Job'}"></i>
+                        <button class="btn" style="margin-top:auto; background:var(--green); color:#000!important; border:none;" disabled>Applied <i class="fa-solid fa-check"></i></button>
+                    </div>
+                `;
+            } else {
+                actionButtons = `
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        ${isJobseeker ? `<i class="fa-solid fa-heart like-job-icon ${isLiked ? 'liked' : 'unliked'}" ${likeAction} title="${isLiked ? 'Remove from Saved' : 'Save Job'}"></i>` : ''}
+                        <button class="btn" style="margin-top:auto; border-color:var(--gold); color:var(--gold);" onclick="openApply('${j.id}')">Apply Now</button>
+                    </div>
+                `;
+            }
+        } 
+        else if (isEmployer) {
+             actionButtons = `<div style="font-size: 11px; color: var(--muted); margin-top: auto;">Employer view</div>`;
+        }
+
+        const conf = catConfig[j.category] || { icon: 'fa-tag', emoji: '' };
+
+        el.innerHTML = `
+            <div style="flex:1">
+                <h3>${escapeHtml(j.title)}</h3>
+                <div class="meta">
+                    <span title="Company"><i class="fa-solid fa-building"></i> ${escapeHtml(j.company)}</span>
+                    <span title="Location"><i class="fa-solid fa-location-dot" style="color:#00d4ff"></i> ${escapeHtml(j.location)}</span>
+                    <span title="Category"><i class="fa-solid ${conf.icon}" style="color:#e91e63"></i> ${escapeHtml(j.category)}</span>
+                </div>
+                <p style="font-size:13px; margin-top:12px; line-height:1.5; color:var(--muted);">
+                    ${escapeHtml(j.description).slice(0, 150)}...
+                </p>
+            </div>
+            <div class="right">
+                <div class="pill">₹${escapeHtml(j.salary)}</div>
+                ${actionButtons}
+            </div>
+        `;
+        targetEl.appendChild(el);
+    });
+}
+
+// --- SECURE VERIFY PROFILE FUNCTION ---
+window.verifyProfile = (id) => {
+    const session = get(KEY_SESSION);
+    if (!session) return showToast('Please login to verify.', 'error');
+
+    const profiles = get(KEY_CANDIDATE_PROFILES);
+    const profileIndex = profiles.findIndex(p => p.id === id);
+    
+    if (profileIndex === -1) return showToast('Profile not found.', 'error');
+
+    const profile = profiles[profileIndex];
+
+    // LOGIC: Check if user is Admin OR if their email matches the Manager Email
+    const isAuthorizedManager = session.role === 'employer' && 
+                                profile.managerEmail && 
+                                session.email.toLowerCase().trim() === profile.managerEmail.toLowerCase().trim();
+
+    if (session.role === 'admin' || isAuthorizedManager) {
+        profiles[profileIndex].status = 'Verified';
+        set(KEY_CANDIDATE_PROFILES, profiles);
+        
+        if(isAuthorizedManager) {
+            showToast(`Thank you! You have successfully verified ${profile.name}.`, 'success');
+        } else {
+            showToast(`Profile ${profile.name} Verified by Admin!`, 'success');
+        }
+        renderCandidateProfiles(); 
+    } else {
+        showToast('Access Denied: Only the previous manager (' + profile.managerEmail + ') can verify this.', 'error');
+    }
+}
+// --- END VERIFY PROFILE FUNCTION ---
+
+// --- DELETE PROFILE FUNCTION ---
+window.deleteProfile = (id) => {
+    const session = get(KEY_SESSION);
+    if (!session) return showToast('Please log in to delete profiles.', 'error');
+
+    const profiles = get(KEY_CANDIDATE_PROFILES);
+    const profile = profiles.find(p => p.id === id);
+
+    // UPDATED: Admin can delete any profile
+    if (session.role === 'admin') {
+         if(confirm(`Admin action: Are you sure you want to delete profile for ${profile.currentRole}?`)) {
+            const updatedProfiles = profiles.filter(p => p.id !== id);
+            set(KEY_CANDIDATE_PROFILES, updatedProfiles);
+            showToast('Profile deleted successfully by Admin.', 'success');
+            renderCandidateProfiles();
+        }
+    } 
+    else if (profile && profile.userId === session.id) {
+        if(confirm(`Are you sure you want to delete your profile for ${profile.currentRole}?`)) {
+            const updatedProfiles = profiles.filter(p => p.id !== id);
+            set(KEY_CANDIDATE_PROFILES, updatedProfiles);
+            showToast('Your profile was deleted successfully.', 'success');
+            renderCandidateProfiles();
+        }
+    } 
+    else if (profile.id === 'p1') {
+        showToast('Creator profile cannot be deleted.', 'error');
+    }
+    else {
+        showToast('You can only delete your own submitted profiles.', 'error');
+    }
+}
+
+
+function renderCandidateProfiles() {
+    const session = get(KEY_SESSION);
+    const userId = session ? session.id : null;
+    const userEmail = session ? session.email.toLowerCase().trim() : '';
+    
+    // Check user roles
+    const isAdmin = session && session.role === 'admin';
+    const isEmployer = session && session.role === 'employer';
+    
+    const allProfiles = get(KEY_CANDIDATE_PROFILES);
+    
+    // Filter: Show Verified OR My Own OR Pending (for Admin/Employer to see)
+    const filteredProfiles = allProfiles.filter(p => 
+        p.status === 'Verified' || (userId && p.userId === userId)
+        || ( (isAdmin || isEmployer) && p.status === 'Pending Verification')
+    );
+    
+    const hireRequests = get(KEY_HIRE_REQUESTS);
+    const el = $('profilesList');
+    el.innerHTML = '';
+    
+    if(!filteredProfiles.length) { el.innerHTML='<div style="padding:20px; text-align:center;">No profiles available currently.</div>'; return; }
+
+    filteredProfiles.slice().reverse().forEach(p => {
+        const d = document.createElement('div');
+        
+        const isPremium = p.id === 'p1' && p.name === 'Naresh Suthar';
+        const isPending = p.status === 'Pending Verification';
+        const isOwnProfile = userId && p.userId === userId;
+        
+        // CHECK: Is the logged-in user the specific manager for this profile?
+        const isTargetManager = isEmployer && p.managerEmail && (userEmail === p.managerEmail.toLowerCase().trim());
+
+        d.className = 'profile-card';
+        if(isPremium) d.classList.add('premium');
+        if(isPending) d.classList.add('pending');
+        
+        // Highlight card for the specific manager
+        if(isPending && isTargetManager) {
+            d.style.borderColor = '#00cc66'; // Green border for the manager to notice
+            d.style.boxShadow = '0 0 15px rgba(0, 204, 102, 0.2)';
+        }
+
+        const requestSentByAdmin = hireRequests.some(req => req.candidateId === p.id);
+        const requestSentByThisEmployer = isEmployer && hireRequests.some(req => req.candidateId === p.id && req.employerEmail === session.email);
+        
+        let actionAreaHtml = '';
+
+        if (p.id !== 'p1') { 
+            
+            // 1. ADMIN ACTIONS (Can Verify All, Edit All, Delete All)
+            if (isAdmin) {
+                actionAreaHtml += `
+                    <div class="action-row" style="justify-content: flex-end; gap: 8px;">
+                        <button class="action-btn edit" onclick="editProfile('${p.id}')" title="Edit Profile"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button class="action-btn del" onclick="deleteProfile('${p.id}')" title="Delete Profile"><i class="fa-solid fa-trash-can"></i></button>
+                    </div>
+                `;
+                if (isPending) {
+                     actionAreaHtml += `
+                        <div style="margin-top: 10px;">
+                            <button class="btn cta verify-btn" onclick="verifyProfile('${p.id}')">Verify (Admin)</button>
+                            <div class="hire-status">Pending Verification</div>
+                        </div>`;
+                } else if (requestSentByAdmin) {
+                    actionAreaHtml += `<div class="hire-status" style="margin-top:10px; color:var(--green);">Offer Sent</div>`;
+                } else {
+                    actionAreaHtml += `<div style="margin-top:10px;"><button class="btn cta hire-btn" onclick="openHireModal('${p.id}', '${p.name}')">Send Offer</button></div>`;
+                }
+            } 
+            
+            // 2. EMPLOYER ACTIONS (Specific Manager Logic)
+            else if (isEmployer) {
+                if (isPending) {
+                    if (isTargetManager) {
+                        // Agar ye wahi manager hai jiska email dala tha
+                        actionAreaHtml = `
+                            <div style="background:rgba(0,204,102,0.1); padding:10px; border-radius:8px; text-align:right;">
+                                <div style="font-size:12px; color:var(--green); margin-bottom:5px;">Former Employee Verification Req.</div>
+                                <button class="btn cta verify-btn" onclick="verifyProfile('${p.id}')">
+                                    <i class="fa-solid fa-check"></i> Verify Now
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        // Agar ye koi aur employer hai
+                        actionAreaHtml = `
+                            <div class="hire-status" style="color:var(--muted); font-weight:600;">
+                                <i class="fa-solid fa-lock"></i> Verification Pending <br>
+                                <span style="font-size:10px; font-weight:400;">(Waiting for Manager Approval)</span>
+                            </div>
+                        `;
+                    }
+                } else if (p.status === 'Verified') {
+                    if (requestSentByThisEmployer) {
+                         actionAreaHtml = `<div class="hire-status">Offer Sent</div>`;
+                    } else {
+                        actionAreaHtml = `<div style="margin-top:10px;"><button class="btn cta hire-btn" onclick="openHireModal('${p.id}', '${p.name}')">Send Offer</button></div>`;
+                    }
+                }
+            }
+            
+            // 3. JOBSEEKER ACTIONS
+            else if (isOwnProfile && session.role === 'jobseeker') {
+                actionAreaHtml = `
+                    <button class="btn profile-edit-btn" onclick="editProfile('${p.id}')"><i class="fa-solid fa-pen-to-square"></i> Edit</button>
+                    <button class="btn profile-del-btn" onclick="deleteProfile('${p.id}')"><i class="fa-solid fa-trash-can"></i> Delete</button>
+                    <div class="hire-status" style="margin-top:10px;">
+                        ${isPending ? '<i class="fa-solid fa-clock"></i> Sent to Manager for Verification' : '<i class="fa-solid fa-check-circle"></i> Profile Verified'}
+                    </div>
+                `;
+            }
+            
+            // 4. GUEST VIEW
+            else {
+                actionAreaHtml = isPending 
+                    ? `<div class="hire-status">Verification Pending</div>` 
+                    : `<div class="hire-status">Verified Candidate</div>`;
+            }
+        } 
+        
+        // Creator Profile Display
+        else if (isPremium) {
+            actionAreaHtml = `<div class="hire-status"><span style="color:var(--gold-light); font-weight:700;">⭐ Creator Profile</span></div>`;
+        }
+
+        d.innerHTML = `
+            <div class="profile-card-left">
+                <div class="profile-photo">
+                    <img src="${p.photoUrl}" alt="${p.name}" onerror="this.onerror=null; this.src='https://i.pravatar.cc/150?u=fallback';" />
+                </div>
+                <div class="profile-info">
+                    <h4>${escapeHtml(p.name)}</h4>
+                    <div class="role">${escapeHtml(p.currentRole)}</div>
+                    <div class="prev-company">Last worked at: <strong>${escapeHtml(p.prevCompany)}</strong> (${escapeHtml(p.prevRole)})</div>
+                    <p class="experience-text">${escapeHtml(p.experience)}</p>
+                </div>
+            </div>
+            <div class="profile-card-right">
+                ${actionAreaHtml}
+            </div>
+        `;
+        el.appendChild(d);
+    });
+}
+
+let targetCandidateId = null;
+
+window.openHireModal = (id, name) => {
+    const s = get(KEY_SESSION);
+    if (!s || (s.role !== 'employer' && s.role !== 'admin')) {
+        return showToast('Only Employers/Admin can send hire requests.', 'error');
+    }
+    targetCandidateId = id;
+    $('hireCandidateName').textContent = name;
+    $('hireModal').style.display = 'flex';
+    $('hire_job_title').value = '';
+    $('hire_salary').value = '';
+    $('hire_message').value = '';
+};
+
+$('closeHireModal').onclick = () => { $('hireModal').style.display = 'none'; };
+
+$('submitHireRequest').onclick = () => {
+    const s = get(KEY_SESSION);
+    const jobTitle = trim($('hire_job_title').value);
+    const salary = trim($('hire_salary').value);
+    const message = trim($('hire_message').value);
+    
+    if (!jobTitle || !salary) return showToast('Please enter Job Title and Salary.', 'error');
+
+    const candidate = get(KEY_CANDIDATE_PROFILES).find(p => p.id === targetCandidateId);
+    if (!candidate) return showToast('Candidate not found.', 'error');
+
+    const newRequest = {
+        id: uid(),
+        candidateId: targetCandidateId,
+        candidateName: candidate.name,
+        employerEmail: s.email,
+        employerName: s.name,
+        jobTitle: jobTitle,
+        salary: salary,
+        message: message,
+        date: new Date().toISOString()
+    };
+
+    const requests = get(KEY_HIRE_REQUESTS);
+    requests.push(newRequest);
+    set(KEY_HIRE_REQUESTS, requests);
+
+    showToast(`Hire request sent to ${candidate.name} successfully!`, 'success');
+    $('hireModal').style.display = 'none';
+    renderCandidateProfiles(); 
+    updateNotificationBadge(); 
+};
+
+// --- NEW: Notification Rendering (For Job Seekers) ---
+function updateNotificationBadge() {
+    const s = get(KEY_SESSION);
+    const badge = $('notificationCount');
+    
+    if (!s || s.role !== 'jobseeker') {
+        badge.style.display = 'none';
+        return;
+    }
+    
+    const hireRequests = get(KEY_HIRE_REQUESTS);
+    const profile = get(KEY_CANDIDATE_PROFILES).find(p => p.userId === s.id);
+    
+    if (!profile) {
+        badge.style.display = 'none';
+        return;
+    }
+    
+    const unreadCount = hireRequests.filter(req => req.candidateId === profile.id && !req.read).length;
+    
+    if (unreadCount > 0) {
+        badge.textContent = unreadCount;
+        badge.style.display = 'flex';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+function renderNotificationsView() {
+    const s = get(KEY_SESSION);
+    const el = $('notificationsViewList');
+    el.innerHTML = '';
+
+    if (!s || s.role !== 'jobseeker') {
+        el.innerHTML = '<div class="card" style="padding:20px; text-align:center;">Only Job Seekers can view Hire Notifications.</div>';
+        return;
+    }
+    
+    const profile = get(KEY_CANDIDATE_PROFILES).find(p => p.userId === s.id);
+    
+    if (!profile) {
+        el.innerHTML = '<div class="card" style="padding:20px; text-align:center; color:var(--muted);">Please submit your job history profile first to receive hire requests.</div>';
+        return;
+    }
+
+    let hireRequests = get(KEY_HIRE_REQUESTS);
+    const myRequests = hireRequests.filter(req => req.candidateId === profile.id).slice().reverse();
+    
+    if (myRequests.length === 0) {
+         el.innerHTML = '<div class="card" style="padding:20px; text-align:center; color:var(--muted);">No notifications or hire requests received yet.</div>';
+         return;
+    }
+    
+    // Mark all as read when the page is viewed
+    let hasUnread = false;
+    hireRequests.forEach(req => {
+        if (req.candidateId === profile.id && !req.read) {
+            req.read = true;
+            hasUnread = true;
+        }
+    });
+    if (hasUnread) {
+        set(KEY_HIRE_REQUESTS, hireRequests);
+        updateNotificationBadge();
+    }
+    
+    myRequests.forEach(req => {
+        const d = document.createElement('div');
+        d.className = 'notification-card'; // Using the better looking notification-card style
+        d.style.borderLeftColor = req.read ? 'var(--gold)' : 'var(--red)';
+        d.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <h4 style="margin:0; font-size:18px; color:var(--text-main);"><i class="fa-solid fa-handshake" style="color:var(--green)"></i> Hire Offer: ${escapeHtml(req.jobTitle)}</h4>
+                <div style="font-size:12px; color:var(--muted);">${new Date(req.date).toLocaleDateString()}</div>
+            </div>
+            <p style="font-size:13px; color:var(--muted); margin-top:10px;">
+                From: <strong>${escapeHtml(req.employerName)}</strong> (Email: ${escapeHtml(req.employerEmail)})
+            </p>
+            <p style="font-size:14px; color:var(--gold); font-weight:600; margin-top:5px;">
+                Proposed Salary: ₹${escapeHtml(req.salary)} / Month
+            </p>
+            <blockquote style="margin-top:15px; padding:10px; border-left:3px solid var(--border); font-size:13px; color:var(--text-main);">
+                ${escapeHtml(req.message) || 'No message provided.'}
+            </blockquote>
+            <div style="margin-top:15px; text-align:right;">
+                <button class="btn hire-btn" style="background:var(--green); color:#000;"><i class="fa-solid fa-check"></i> Accept Offer</button>
+                <button class="btn profile-del-btn" style="margin-left:10px;"><i class="fa-solid fa-xmark"></i> Decline</button>
+            </div>
+        `;
+        el.appendChild(d);
+    });
+}
+
+// Toggle logic for the dropdown bell icon
+$('notificationBtn').onclick = () => {
+    const s = get(KEY_SESSION);
+    const popup = $('notification-popup');
+    
+    if (!s || s.role !== 'jobseeker') {
+        // If not logged in as jobseeker, show toast and return
+        showToast('Please login as Job Seeker to view notifications.', 'error');
+        popup.style.display = 'none';
+        return;
+    }
+    
+    if (popup.style.display === 'flex') {
+        popup.style.display = 'none';
+    } else {
+        // Show the popup and render list
+        renderNotificationsPopup();
+        popup.style.display = 'flex';
+    }
+};
+
+function renderNotificationsPopup() {
+    const s = get(KEY_SESSION);
+    const el = $('notificationList');
+    el.innerHTML = '';
+    
+    const profile = get(KEY_CANDIDATE_PROFILES).find(p => p.userId === s.id);
+    if (!profile) {
+        el.innerHTML = '<div class="no-notifications">Profile not submitted. No notifications.</div>';
+        return;
+    }
+
+    let hireRequests = get(KEY_HIRE_REQUESTS);
+    const myRequests = hireRequests.filter(req => req.candidateId === profile.id).slice().reverse();
+    
+    if (myRequests.length === 0) {
+         el.innerHTML = '<div class="no-notifications">No new hire requests.</div>';
+         return;
+    }
+    
+    myRequests.slice(0, 5).forEach(req => {
+        const isNew = !req.read;
+        const d = document.createElement('div');
+        d.className = 'notification-item';
+        if (isNew) d.style.background = 'rgba(212,175,55,0.1)';
+        
+        d.innerHTML = `
+            ${isNew ? '<i class="fa-solid fa-circle" style="font-size: 8px; color: var(--red); margin-right: 5px;"></i>' : ''}
+            New Offer: <strong>${escapeHtml(req.jobTitle)}</strong> (₹${escapeHtml(req.salary)}) from ${escapeHtml(req.employerName)}.
+        `;
+        el.appendChild(d);
+    });
+    
+    if (myRequests.length > 5) {
+        el.innerHTML += `<div class="notification-item" style="text-align:center;">
+            <a href="#" onclick="showView('notifications'); return false;" style="color:var(--gold);">View All ${myRequests.length} Notifications</a>
+        </div>`;
+    }
+}
+// --- END NEW: Notification Rendering ---
+
+// --- EMPLOYER ACTIONS ---
+window.hireApplication = (appId) => {
+    const s = get(KEY_SESSION);
+    if (!s || (s.role !== 'employer' && s.role !== 'admin')) return showToast('Permission Denied.', 'error');
+
+    if(confirm('Are you sure you want to HIRE this candidate?')) {
+        const statusList = get(KEY_APP_STATUS);
+        const app = get(KEY_APPS).find(a => a.id === appId);
+        const newStatus = { id: uid(), appId: appId, status: 'Accepted', date: new Date().toISOString() };
+        statusList.push(newStatus);
+        set(KEY_APP_STATUS, statusList);
+        showToast(`Hire request ACCEPTED for ${app.name}!`, 'success');
+        
+        // Notify Job Seeker (Simulated Notification/Toast on their next login/refresh)
+        // For demonstration, we simply update the status and re-render
+        
+        renderEmployerApplications();
+        renderDashboard();
+    }
+}
+
+window.rejectApplication = (appId) => {
+    const s = get(KEY_SESSION);
+    if (!s || (s.role !== 'employer' && s.role !== 'admin')) return showToast('Permission Denied.', 'error');
+
+     if(confirm('Are you sure you want to REJECT this candidate?')) {
+        const statusList = get(KEY_APP_STATUS);
+        const app = get(KEY_APPS).find(a => a.id === appId);
+        const newStatus = { id: uid(), appId: appId, status: 'Rejected', date: new Date().toISOString() };
+        statusList.push(newStatus);
+        set(KEY_APP_STATUS, statusList);
+        showToast(`Application REJECTED for ${app.name}.`, 'error');
+        
+        renderEmployerApplications();
+        renderDashboard();
+    }
+}
+
+// NEW: Contact Candidate (Call/Chat Simulation)
+window.contactCandidate = (type, value) => {
+    if (type === 'call') {
+        showToast(`📞 Initiating call to: ${value} (Simulated)`, 'info');
+        // Actual call link (for mobile users): window.location.href = `tel:${value}`;
+    } else if (type === 'chat') {
+        showToast(`💬 Opening chat window with: ${value} (Simulated)`, 'info');
+        // Actual WhatsApp link (if formatted correctly): window.location.href = `https://wa.me/${value}`;
+    }
+};
+
+
+// --- NEW: Employer/Admin Application View (FIXED ACTIONS) ---
+function renderEmployerApplications() {
+    const apps = get(KEY_APPS);
+    const el = $('appList'); 
+    el.innerHTML = '';
+    $('appViewTitle').innerHTML = '<i class="fa-solid fa-handshake-angle" style="color:#9c27b0"></i> Applications Received';
+
+    const session = get(KEY_SESSION);
+    const isAdmin = session && session.role === 'admin';
+    const appStatusList = get(KEY_APP_STATUS);
+    
+    if (!session || (session.role !== 'employer' && session.role !== 'admin')) {
+        el.innerHTML = `<div style="padding:20px; text-align:center; color:var(--muted);">Please login as an Employer or Admin to view received applications.</div>`;
+        return;
+    }
+    
+    const allJobs = get(KEY_JOBS);
+    
+    // Filter applications for jobs posted by the logged-in Employer/Admin
+    const relevantJobs = allJobs.filter(j => isAdmin || j.creatorId === session.id);
+    const relevantJobIds = relevantJobs.map(j => j.id);
+
+    // Filter to show ONLY PENDING applications in the main list
+    const pendingApps = apps.filter(a => {
+        const isRelevant = relevantJobIds.includes(a.jobId);
+        if (!isRelevant) return false;
+        
+        const latestStatus = appStatusList.filter(s => s.appId === a.id)
+                                          .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+        
+        // Show if status is null, 'Submitted', or 'Pending' (default for a new application before Hire/Reject)
+        return !latestStatus || latestStatus.status === 'Submitted' || latestStatus.status === 'Pending';
+    }).slice().reverse();
+
+    if (pendingApps.length === 0) {
+        el.innerHTML = `<div style="text-align:center; padding:20px; color:var(--muted)">No pending applications requiring review.</div>`;
+        return;
+    }
+
+    pendingApps.forEach(a => {
+        const d = document.createElement('div');
+        d.className = 'job';
+        
+        // Note: Status is always Pending/Submitted here due to the filter
+        
+        const actionButtons = `
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button class="btn hire-btn" onclick="hireApplication('${a.id}')" style="background:var(--green); color:#000!important;">Hire</button>
+                <button class="btn profile-del-btn" onclick="rejectApplication('${a.id}')" style="margin-left:0;">Reject</button>
+            </div>
+        `;
+
+        d.innerHTML = `
+            <div style="flex:1">
+                <h3 style="color:var(--text-main);"><i class="fa-solid fa-user-check" style="color:var(--gold)"></i> Candidate: ${escapeHtml(a.name)}</h3>
+                <p style="font-size:14px; color:var(--muted); margin-top:5px;">Applied for: <strong>${escapeHtml(a.jobTitle)}</strong></p>
+                <div class="meta" style="margin-top:8px; align-items: center;">
+                    <span title="Email"><i class="fa-solid fa-envelope" style="color:#00d4ff"></i> ${escapeHtml(a.email)}</span>
+                    <span title="Phone"><i class="fa-solid fa-phone" style="color:#00cc66"></i> ${escapeHtml(a.phone)}</span>
+                </div>
+                <p style="font-size:13px; margin-top:12px; line-height:1.5; color:var(--muted);">
+                    Skills/Note: ${escapeHtml(a.skills) || 'N/A'}
+                </p>
+                <p style="font-size:11px; margin-top:8px; color:var(--muted);">
+                    Received On: ${new Date(a.applied).toLocaleDateString()} | 
+                    Status: <span style="color:var(--gold); font-weight:700;">Pending Review</span>
+                </p>
+            </div>
+            <div class="right" style="justify-content:center;">
+                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                    <button class="action-btn" title="Call Candidate" onclick="contactCandidate('call', '${escapeHtml(a.phone)}')">
+                        <i class="fa-solid fa-phone" style="color:var(--green)"></i>
+                    </button>
+                    <button class="action-btn" title="Chat Candidate" onclick="contactCandidate('chat', '${escapeHtml(a.phone)}')">
+                        <i class="fa-solid fa-comment" style="color:#00d4ff"></i>
+                    </button>
+                </div>
+                <button class="btn" style="border-color:#00d4ff; color:#00d4ff; width: 100%;" onclick="downloadApp('${a.id}')" title="Download Full Application PDF">
+                    <i class="fa-solid fa-file-pdf"></i> Download PDF
+                </button>
+                <div class="action-row" style="margin-top: 10px; justify-content: space-between; width: 100%;">
+                    ${isAdmin ? `<button class="action-btn del" onclick="removeApp('${a.id}')" title="Admin Delete Application"><i class="fa-solid fa-trash-can"></i></button>` : ''}
+                    ${actionButtons}
+                </div>
+            </div>
+        `;
+        el.appendChild(d);
+    });
+}
+
+// --- NEW: Jobseeker/Admin Application View (FIXED STATUS FLOW) ---
+function renderJobseekerApplications() {
+    const apps = get(KEY_APPS);
+    const el = $('appList'); 
+    el.innerHTML = '';
+    $('appViewTitle').innerHTML = '<i class="fa-solid fa-file-invoice" style="color:#2196f3"></i> My Job Applications';
+
+    const session = get(KEY_SESSION);
+    const isJobseeker = session && session.role === 'jobseeker';
+    const isAdmin = session && session.role === 'admin';
+    const appStatusList = get(KEY_APP_STATUS);
+
+    if (!session || (!isJobseeker && !isAdmin)) {
+        el.innerHTML = `<div style="padding:20px; text-align:center; color:var(--muted);">Please login as a Job Seeker or Admin to view your applications.</div>`;
+        return;
+    }
+    
+    // Filter applications by user email or show all if admin
+    const myApplications = apps.filter(a => isAdmin || a.email.toLowerCase() === session.email.toLowerCase()).slice().reverse();
+
+    if(myApplications.length === 0){ 
+        el.innerHTML='<div style="text-align:center; padding:20px; color:var(--muted)">You haven\'t applied for any jobs yet. Start exploring our Elite Listings!</div>'; 
+        return; 
+    }
+    
+    myApplications.forEach(a => {
+        const latestStatus = appStatusList.filter(s => s.appId === a.id)
+                                          .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+        
+        let status = latestStatus ? latestStatus.status : 'Submitted';
+        
+        let status1Class = (status === 'Submitted' || status === 'Pending' || status === 'Accepted' || status === 'Rejected') ? 'completed' : '';
+        let status2Class = (status === 'Pending' || status === 'Accepted') ? 'active' : ''; // Pending (Review)
+        let status3Class = (status === 'Accepted') ? 'completed' : (status === 'Rejected') ? 'rejected' : '';
+        
+        let decisionText = status === 'Accepted' ? 'Hired/Accepted' : status === 'Rejected' ? 'Rejected' : 'Hiring Decision';
+        
+        const d = document.createElement('div');
+        d.className = 'job';
+        d.innerHTML = `
+            <div style="flex:1">
+                <h3 style="color:var(--text-main);"><i class="fa-solid fa-file-invoice"></i> Applied for: ${escapeHtml(a.jobTitle)}</h3>
+                <p style="font-size:13px; margin-top:12px; line-height:1.5; color:var(--muted);">
+                    Skills/Note: ${escapeHtml(a.skills) || 'N/A'}
+                </p>
+                <div class="status-flow">
+                    <span class="status-step ${status1Class}"><i class="fa-solid fa-file-export"></i> Submitted</span>
+                    <span class="flow-arrow">></span>
+                    <span class="status-step ${status2Class}"><i class="fa-solid fa-clock"></i> Pending Review</span>
+                    <span class="flow-arrow">></span>
+                    <span class="status-step ${status3Class}"><i class="fa-solid fa-handshake-angle"></i> ${decisionText}</span>
+                </div>
+                <p style="font-size:11px; margin-top:8px; color:var(--muted);">
+                    Applied On: ${new Date(a.applied).toLocaleDateString()}
+                </p>
+            </div>
+            <div class="right" style="justify-content:center;">
+                <button class="btn" style="border-color:#00d4ff; color:#00d4ff;" onclick="downloadApp('${a.id}')" title="Download Application Form">
+                    <i class="fa-solid fa-file-pdf"></i> Download PDF
+                </button>
+            </div>
+        `;
+        el.appendChild(d);
+    });
+}
+// --- END NEW: Application View Functions ---
+
+
+function renderDashboard(){
+    const jobs = get(KEY_JOBS);
+    $('statJobs').textContent = jobs.length;
+    
+    const session = get(KEY_SESSION);
+    const apps = get(KEY_APPS);
+    let appCount = 0;
+    let labelText = "Total Applications (Guest)";
+
+    if (session) {
+        const isAdmin = session.role === 'admin';
+        const isEmployer = session.role === 'employer';
+        const isJobseeker = session.role === 'jobseeker';
+        const appStatusList = get(KEY_APP_STATUS);
+
+        if (isAdmin) {
+             appCount = apps.length;
+             labelText = "Total Applications (Admin)";
+        } else if (isEmployer) {
+            const myJobIds = get(KEY_JOBS).filter(j => j.creatorId === session.id).map(j => j.id);
+            
+            const pendingApps = apps.filter(a => {
+                const isRelevant = myJobIds.includes(a.jobId);
+                if (!isRelevant) return false;
+                
+                const latestStatus = appStatusList.filter(s => s.appId === a.id)
+                                                  .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+                
+                // If no status or status is "Submitted", it's pending review
+                return !latestStatus || latestStatus.status === 'Submitted' || latestStatus.status === 'Pending';
+            });
+            appCount = pendingApps.length;
+            labelText = "Pending Applications";
+        } else if (isJobseeker) {
+            appCount = apps.filter(a => a.email.toLowerCase() === session.email.toLowerCase()).length;
+            labelText = "My Total Applications";
+        }
+    }
+    
+    $('statApps').textContent = appCount;
+    $('statAppsLabel').textContent = labelText;
+
+    renderJobsList(jobs.slice().reverse().slice(0,6), $('recentJobs'));
+    checkSession();
+}
+
+function renderAllJobs() {
+    const jobs = get(KEY_JOBS);
+    const search = trim($('searchInput').value).toLowerCase();
+    const category = trim($('searchCategory').value);
+    const salaryRange = trim($('searchSalaryRange').value);
+    
+    const [minSalary, maxSalary] = salaryRange ? salaryRange.split('-').map(s => parseInt(s)) : [0, Infinity];
+
+    const filteredJobs = jobs.filter(j => {
+        const jobSalary = parseInt(j.salary);
+
+        const matchesSearch = search === '' || 
+                              j.title.toLowerCase().includes(search) || 
+                              j.description.toLowerCase().includes(search) ||
+                              j.location.toLowerCase().includes(search) ||
+                              j.company.toLowerCase().includes(search);
+                              
+        const matchesCategory = category === '' || j.category === category;
+        
+        const matchesSalary = !salaryRange || (jobSalary >= minSalary && jobSalary <= maxSalary);
+        
+        return matchesSearch && matchesCategory && matchesSalary;
+    });
+    
+    renderJobsList(filteredJobs, $('allJobs'));
+}
+$('searchInput').addEventListener('keyup', renderAllJobs);
+$('searchCategory').addEventListener('change', renderAllJobs);
+$('searchSalaryRange').addEventListener('change', renderAllJobs); 
+
+
+function prepareAddForm(){ 
+    editId=null; 
+    $('jobForm').reset(); 
+    popCats(); 
+    toggleOtherCategory();
+}
+
+$('jobForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const title = trim($('f_title').value);
+    const salary = trim($('f_salary').value);
+    const selectedCategory = $('f_category').value;
+    const otherCategory = trim($('f_other_category_input').value);
+
+    if(!title || !salary || !selectedCategory) {
+        return showToast('Title, Salary, and Category are required.', 'error');
+    }
+    
+    let finalCategory = selectedCategory;
+    if (selectedCategory === 'Other') {
+        if (!otherCategory) {
+            return showToast('Please specify the custom category.', 'error');
+        }
+        finalCategory = trim(otherCategory);
+    }
+
+    const session = get(KEY_SESSION);
+    const creatorId = session ? session.id : null;
+    
+    const jobs = get(KEY_JOBS);
+    const jobData = {
+        title, 
+        company: trim($('f_company').value)||'Private', 
+        category: finalCategory, 
+        salary, 
+        location: trim($('f_location').value), 
+        description: trim($('f_description').value),
+        created: new Date().toISOString(),
+        creatorId: creatorId 
+    };
+    
+    if(editId){
+        const idx = jobs.findIndex(x=>x.id===editId);
+        if(idx>-1) jobs[idx] = {...jobs[idx], ...jobData};
+    } else { 
+        jobData.id = uid(); 
+        jobs.push(jobData); 
+    }
+    set(KEY_JOBS, jobs);
+    showToast(editId ? 'Job Updated' : 'Job Posted Successfully', 'success');
+    $('jobForm').reset();
+    showView('jobs');
+});
+
+function getBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+    });
+}
+
+$('jobHistoryForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const s = get(KEY_SESSION);
+    if (!s) return showToast('Please Login to submit history.', 'error');
+    
+    const profileId = $('history_profile_id').value;
+    const isEdit = !!profileId;
+    
+    const name = trim($('history_name').value);
+    const currentRole = trim($('history_current_role').value);
+    const prevCompany = trim($('history_prev_company').value);
+    const prevRole = trim($('history_prev_role').value);
+    const prevLocation = trim($('history_prev_location').value);
+    const managerEmail = trim($('history_manager_email').value);
+    const description = trim($('history_description').value);
+    const photoFile = $('history_photo').files[0];
+
+    const isCreatorEdit = false;
+
+    if(!isCreatorEdit && (!name || !currentRole || !prevCompany || !prevRole || !managerEmail || !description)) {
+        return showToast('Please fill all required fields.', 'error');
+    }
+    
+    let photoBase64 = null;
+    let profiles = get(KEY_CANDIDATE_PROFILES);
+    let existingProfile = profiles.find(p => p.id === profileId);
+
+    if (photoFile) {
+        if (photoFile.size > 1024 * 1024 * 5) { 
+            return showToast('Photo size must be less than 5MB.', 'error');
+        }
+        try {
+            photoBase64 = await getBase64(photoFile);
+        } catch (error) {
+            console.error('Error converting file to base64:', error);
+            showToast('Error processing photo. Using existing/default image.', 'error');
+        }
+    } else if (isEdit && existingProfile) {
+        photoBase64 = existingProfile.photoUrl;
+    } else {
+        photoBase64 = 'https://i.pravatar.cc/150?u='+s.id;
+    }
+
+    const jobHistoryData = {
+        name: name,
+        currentRole: currentRole,
+        prevCompany: prevCompany,
+        prevRole: prevRole,
+        prevLocation: prevLocation,
+        managerEmail: managerEmail,
+        experience: description,
+        photoUrl: photoBase64,
+        status: isCreatorEdit ? 'Verified' : 'Pending Verification' 
+    };
+
+    if (isEdit) {
+        const profileIndex = profiles.findIndex(p => p.id === profileId);
+        if (profileIndex > -1) {
+            profiles[profileIndex] = {...profiles[profileIndex], ...jobHistoryData};
+            set(KEY_CANDIDATE_PROFILES, profiles);
+            showToast('Profile Updated Successfully!', 'success');
+        }
+    } else {
+        const newProfile = {
+            id: uid(),
+            userId: s.id,
+            ...jobHistoryData,
+            dateSubmitted: new Date().toISOString(),
+        };
+        profiles.push(newProfile);
+        set(KEY_CANDIDATE_PROFILES, profiles);
+        showToast('Job History Submitted. It will be verified and published shortly!', 'info');
+    }
+    
+    $('jobHistoryForm').reset();
+    showView('profiles'); 
+});
+
+$('clearHistoryForm').onclick = () => { $('jobHistoryForm').reset(); };
+
+window.editJob = (id) => {
+    const s = get(KEY_SESSION);
+    const job = get(KEY_JOBS).find(x=>x.id===id);
+    
+    if (!s || (s.role !== 'admin' && s.role !== 'employer')) {
+        return showToast('Only Admin or Employers can edit jobs.', 'error');
+    }
+    if (s.role === 'employer' && job.creatorId !== s.id) {
+        return showToast('You can only edit your own job posts.', 'error');
+    }
+
+    if(job){
+        showView('add'); editId = id;
+        $('f_title').value = job.title; $('f_company').value = job.company;
+        $('f_category').value = job.category; $('f_salary').value = job.salary;
+        $('f_location').value = job.location; $('f_description').value = job.description;
+        window.scrollTo({top:0, behavior:'smooth'});
+    }
+};
+
+window.deleteJob = (id) => { 
+    const s = get(KEY_SESSION);
+    const jobs = get(KEY_JOBS);
+    const job = jobs.find(x=>x.id===id);
+
+    if (!s || (s.role !== 'admin' && s.role !== 'employer')) {
+        return showToast('Only Admin or Employers can delete jobs.', 'error');
+    }
+    if (s.role === 'employer' && job.creatorId !== s.id) {
+         return showToast('You can only delete your own job posts.', 'error');
+    }
+
+    if(confirm('Delete this job post permanently?')){ 
+        set(KEY_JOBS, jobs.filter(x=>x.id!==id)); 
+        renderAllJobs(); 
+        renderDashboard(); 
+        showToast('Job Deleted', 'success'); 
+    } 
+};
+
+const authModal = $('authModal');
+const authWrapper = document.querySelector('.auth-wrapper');
+$('openLogin').onclick = () => { authModal.style.display='flex'; authWrapper.classList.remove('toggled'); }
+$('openRegister').onclick = () => { authModal.style.display='flex'; authWrapper.classList.add('toggled'); }
+$('closeAuth').onclick = () => { authModal.style.display='none'; }
+document.querySelector('.login-trigger').onclick = (e) => { e.preventDefault(); authWrapper.classList.remove('toggled'); }
+document.querySelector('.register-trigger').onclick = (e) => { e.preventDefault(); authWrapper.classList.add('toggled'); }
+
+/* --- PASSWORD TOGGLE LOGIC --- */
+function setupPassToggle(inputId, iconId) {
+    const input = document.getElementById(inputId);
+    const icon = document.getElementById(iconId);
+    
+    icon.onclick = () => {
+        const isPass = input.type === 'password';
+        input.type = isPass ? 'text' : 'password';
+        
+        icon.classList.toggle('fa-eye');
+        icon.classList.toggle('fa-eye-slash');
+        
+        // Reset color to ensure good contrast, as per the improved CSS
+        icon.style.color = isPass ? 'var(--gold-light)' : '#fff';
+    };
+}
+setupPassToggle('loginPass', 'toggleLoginPass');
+setupPassToggle('regPass', 'toggleRegPass');
+
+
+// --- FORGOT PASSWORD LOGIC ---
+const forgotPassModal = $('forgotPassModal');
+$('forgotPassModal').style.display = 'none';
+
+document.querySelector('.forgot-trigger').onclick = (e) => { 
+    e.preventDefault(); 
+    $('authModal').style.display = 'none'; 
+    forgotPassModal.style.display = 'flex'; 
+    $('forgotEmail').value = ''; 
+}
+
+$('closeForgot').onclick = () => { 
+    forgotPassModal.style.display = 'none'; 
+    $('authModal').style.display = 'flex'; 
+    document.querySelector('.auth-wrapper').classList.remove('toggled');
+};
+
+$('submitForgotRequest').onclick = () => {
+    const email = trim($('forgotEmail').value);
+    if (!email) {
+        return showToast('Please enter your email.', 'error');
+    }
+
+    const user = get(KEY_USERS).find(x => x.email === email);
+    
+    if (user) {
+        showToast(`Password reset link sent to ${email}. Check your inbox!`, 'success');
+    } else {
+        showToast(`Email ${email} not found. Please register.`, 'error');
+    }
+
+    forgotPassModal.style.display = 'none';
+    $('authModal').style.display = 'flex';
+    document.querySelector('.auth-wrapper').classList.remove('toggled');
+};
+
+$('doLogin').onclick = () => {
+    const email = trim($('loginEmail').value);
+    const pass = trim($('loginPass').value);
+    
+    if(!email || !pass) {
+        return showToast('Email and Password are required for login.', 'error');
+    }
+
+    const u = get(KEY_USERS).find(x => x.email===email && x.pass===pass);
+    if(u){
+        set(KEY_SESSION, {id:u.id, name:u.name, email:u.email, role:u.role});
+        authModal.style.display='none';
+        checkSession();
+        renderAllJobs();
+        showToast(`Welcome back, ${u.name}`, 'success');
+        updateNotificationBadge();
+    } else { 
+        showToast('Invalid Credentials. Please check your email and password.', 'error'); 
+    }
+};
+
+$('doRegister').onclick = () => {
+    const name = trim($('regName').value); 
+    const email = trim($('regEmail').value); 
+    const pass = trim($('regPass').value); 
+    const role = trim($('regRole').value);
+    
+    if(!name || !email || !pass || !role) {
+        return showToast('Please fill all fields (Username, Email, Password, and Role).', 'error');
+    }
+
+    const users = get(KEY_USERS);
+    if(users.find(x=>x.email===email)) return showToast('Email already taken. Please login or use a different email.', 'error');
+    
+    users.push({id:uid(), name, email, pass, role});
+    set(KEY_USERS, users);
+    showToast('Account Created Successfully! Please Log In.', 'success');
+    authWrapper.classList.remove('toggled');
+};
+
+$('doLogout').onclick = () => { 
+    localStorage.removeItem(KEY_SESSION); 
+    checkSession(); 
+    renderAllJobs(); 
+    showView('dashboard'); 
+    showToast('Logged Out Successfully', 'success'); 
+};
+
+let applyId = null;
+window.openApply = (id) => { 
+    let s = get(KEY_SESSION);
+    if(Array.isArray(s)) s = null;
+    
+    if(!s) {
+        // Show error toast instead of redirecting to login modal
+        showToast('Please login as Job Seeker to apply for jobs.', 'error'); 
+        return; 
+    }
+    
+    if(s.role !== 'jobseeker' && s.role !== 'admin') return showToast('Only Job Seekers/Admin can apply for jobs.', 'error');
+    
+    const apps = get(KEY_APPS);
+    const isApplied = apps.some(a => a.jobId === id && a.email === s.email);
+
+    if (isApplied) {
+        showToast('You have already applied for this job!', 'info');
+        // Close modal if it was accidentally opened
+        $('applyModal').style.display='none';
+        return;
+    }
+
+    applyId = id; 
+    $('applyModal').style.display='flex'; 
+    const job = get(KEY_JOBS).find(x=>x.id===applyId);
+    $('applyJobTitle').textContent = `Apply for: ${job ? job.title : 'Job'}`;
+    
+    // Autofill details from session
+    $('app_name').value = s.name || '';
+    $('app_email').value = s.email || '';
+    $('app_phone').value = ''; 
+    $('app_skills').value = '';
+};
+$('closeApply').onclick = () => $('applyModal').style.display='none';
+$('submitApply').onclick = () => {
+    const apps = get(KEY_APPS); 
+    const job = get(KEY_JOBS).find(x=>x.id===applyId);
+    
+    const s = get(KEY_SESSION);
+    if (!s) return showToast('Login session expired. Please log in again.', 'error');
+
+    // **NEW: Check again for double application before submitting**
+    const isApplied = apps.some(a => a.jobId === applyId && a.email === s.email);
+    if (isApplied) {
+        showToast('Application already submitted for this job!', 'error');
+        $('applyModal').style.display='none';
+        return;
+    }
+    // **END NEW CHECK**
+
+    const newApp = { 
+        id:uid(), 
+        jobId:applyId, 
+        jobTitle:job?job.title:'Unknown', 
+        name: $('app_name').value, 
+        email: s.email, 
+        phone: $('app_phone').value, 
+        skills: $('app_skills').value, 
+        applied: new Date().toISOString() 
+    };
+
+    apps.push(newApp);
+    set(KEY_APPS, apps); 
+    
+    // Set initial status to Submitted/Pending 
+    const statusList = get(KEY_APP_STATUS);
+    statusList.push({ id: uid(), appId: newApp.id, status: 'Submitted', date: new Date().toISOString() });
+    set(KEY_APP_STATUS, statusList);
+    
+    // Notify Employer (Simulated)
+    const employerEmail = job.creatorId === 'p1_creator_id' ? LOGIN_ADMIN_EMAIL : (get(KEY_USERS).find(u => u.id === job.creatorId)?.email || 'Employer');
+    showToast(`🔔 New application received for ${job.title} from ${newApp.name} (Employer: ${employerEmail})`, 'info');
+
+    showToast('Application Sent!', 'success'); 
+    $('applyModal').style.display='none';
+    
+    // Refresh relevant views instantly
+    renderAllJobs(); 
+    if (document.querySelector('.nav button.active')?.dataset.view === 'jobseeker-apps') {
+         renderJobseekerApplications(); 
+    }
+    renderDashboard(); 
+};
+
+window.removeApp = (id) => {
+    const s = get(KEY_SESSION);
+    const app = get(KEY_APPS).find(a => a.id === id);
+    if (!app) return showToast('Application not found.', 'error');
+
+    // Only Admin can delete applications globally
+    if (!s || s.role !== 'admin') { 
+        return showToast('Permission Denied: Only Admin can delete applications.', 'error');
+    }
+    
+    if(confirm(`Admin Action: Are you sure you want to delete application by ${app.name} (${app.jobTitle})?`)){
+        const apps = get(KEY_APPS).filter(x => x.id !== id);
+        const statusList = get(KEY_APP_STATUS).filter(x => x.appId !== id);
+
+        set(KEY_APPS, apps);
+        set(KEY_APP_STATUS, statusList);
+        
+        // Re-render based on current view
+        const currentView = document.querySelector('.nav button.active')?.dataset.view;
+        if (currentView === 'employer-apps') renderEmployerApplications(); 
+        else if (currentView === 'jobseeker-apps') renderJobseekerApplications();
+        else renderDashboard(); 
+        
+        showToast('Application Deleted by Admin', 'success');
+    }
+};
+
+// --- NEW: Enhanced Download Function (Simulated PDF - FIXED) ---
+window.downloadApp = (id) => {
+    const app = get(KEY_APPS).find(x=>x.id===id);
+    if (!app) return showToast('Application data not found.', 'error');
+    
+    const job = get(KEY_JOBS).find(x=>x.id===app.jobId);
+    
+    // Simulated PDF content creation
+    const content = `
+        <div style="font-family: Arial, sans-serif; padding: 30px; border: 5px solid #d4af37; max-width: 650px; margin: 0 auto; box-shadow: 0 0 25px rgba(212,175,55,0.4); background: #ffffff; color: #1a1a1a;">
+            <div style="text-align: center; border-bottom: 2px solid #d4af37; padding-bottom: 15px; margin-bottom: 20px;">
+                <div style="margin-top: 5px; font-size: 36px; color: #d4af37; font-family: 'Playfair Display', serif; font-weight: 800;"><i class="fa-solid fa-crown"></i> JobGold</div>
+                <h1 style="color: #1a1a1a; margin: 5px 0 0; font-family: 'Playfair Display', serif; font-size: 24px;">ELITE JOB APPLICATION</h1>
+            </div>
+            
+            <h3 style="color: #d4af37; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 15px; font-size: 18px;">Job Details</h3>
+            <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
+                <tr><td style="padding: 5px 0; width: 30%; font-weight: bold;">Job Title:</td><td style="padding: 5px 0;">${escapeHtml(app.jobTitle)}</td></tr>
+                <tr><td style="padding: 5px 0; width: 30%; font-weight: bold;">Company:</td><td style="padding: 5px 0;">${escapeHtml(job ? job.company : 'Unknown')}</td></tr>
+                <tr><td style="padding: 5px 0; width: 30%; font-weight: bold;">Location:</td><td style="padding: 5px 0;">${escapeHtml(job ? job.location : 'N/A')}</td></tr>
+            </table>
+
+            <h3 style="color: #d4af37; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Candidate Contact</h3>
+            <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
+                <tr><td style="padding: 5px 0; width: 30%; font-weight: bold;">Candidate Name:</td><td style="padding: 5px 0;">${escapeHtml(app.name)}</td></tr>
+                <tr><td style="padding: 5px 0; width: 30%; font-weight: bold;">Email:</td><td style="padding: 5px 0;">${escapeHtml(app.email)}</td></tr>
+                <tr><td style="padding: 5px 0; width: 30%; font-weight: bold;">Phone:</td><td style="padding: 5px 0;">${escapeHtml(app.phone)}</td></tr>
+                <tr><td style="padding: 5px 0; width: 30%; font-weight: bold;">Applied On:</td><td style="padding: 5px 0;">${new Date(app.applied).toLocaleDateString()}</td></tr>
+            </table>
+
+            <h3 style="color: #d4af37; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Skills & Cover Note</h3>
+            <div style="border: 1px solid #eee; padding: 15px; background: #f9f9f9; white-space: pre-wrap; font-size: 13px; line-height: 1.6;">
+                ${escapeHtml(app.skills) || 'Candidate provided no detailed note.'}
+            </div>
+
+            <p style="text-align: center; margin-top: 40px; font-size: 10px; color: #aaa;">
+                Application ID: ${escapeHtml(app.id)} - This document is digitally verified.
+            </p>
+        </div>
+    `;
+
+    // Simulate PDF generation/download using a Blob and download.
+    const blob = new Blob([content], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    // FIX APPLIED HERE: Changed .pdf to .html to resolve the Adobe Acrobat Reader error
+    a.download = `JobGold_Application_${app.name.replace(/\s/g, '_')}_${app.jobTitle.replace(/\s/g, '_')}.html`; // Unique filename
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showToast(`Downloading Elite PDF for ${app.name} (${app.jobTitle})...`, 'success');
+};
+
+
+$('createAdmin').addEventListener('click', () => {
+    const s = get(KEY_SESSION);
+    if (!s || s.role !== 'admin') {
+        return showToast('Only the Creator/Admin can create new admins.', 'error');
+    }
+
+    const email = trim($('adminEmail').value);
+    const pass = trim($('adminPass').value);
+
+    if (!email || !pass) {
+        return showToast('Email and Password are required.', 'error');
+    }
+
+    const users = get(KEY_USERS);
+    if (users.find(u => u.email === email)) {
+        return showToast('User with this email already exists.', 'error');
+    }
+
+    users.push({ id: uid(), name: 'New Admin', email, pass, role: 'admin' });
+    set(KEY_USERS, users);
+    showToast('New Admin Account Created Successfully!', 'success');
+    $('adminEmail').value = '';
+    $('adminPass').value = '';
+});
+
+
+// UPDATED: Added Admin check
+$('clearAll').addEventListener('click', ()=>{ 
+    const s = get(KEY_SESSION);
+    if (!s || s.role !== 'admin') {
+        return showToast('Only Admin can delete all data.', 'error');
+    }
+
+    if(!confirm('DANGER: Delete ALL jobs, applications, profiles, and hire requests? This action cannot be undone.')) return; 
+    localStorage.clear(); // Clears all data
+    showToast('All Data cleared. Reloading...', 'error'); 
+    setTimeout(() => location.reload(), 1500); 
+});
+
+// Added placeholder for Export/Import
+$('exportBtn').onclick = () => showToast('Data Exported/Backed up successfully (Simulated).', 'success');
+$('importBtn').onclick = () => showToast('Data Restored successfully (Simulated).', 'success');
+
+// NEW: Voice Search Toggle Logic
+$('voiceSearchBtn').onclick = () => {
+    const btn = $('voiceSearchBtn');
+    const input = $('searchInput');
+    
+    if (!isListening) {
+        // Start Listening
+        isListening = true;
+        btn.classList.add('listening');
+        input.placeholder = "Listening... Speak now!";
+        showToast('🎙️ Voice Search Activated! Speak your job title or location now...', 'info');
+    } else {
+        // Stop Listening and Process
+        isListening = false;
+        btn.classList.remove('listening');
+        input.placeholder = "Search by title, skill or city...";
+        showToast('Processing voice command...', 'info');
+
+        // Simulate delayed search result based on the request
+        setTimeout(() => {
+            const simulatedQuery = 'Chef job in Dhaba';
+            input.value = simulatedQuery;
+            showToast(`🔍 Searching for: "${simulatedQuery}"`, 'success');
+            renderAllJobs();
+        }, 1500); 
+    }
+};
+
+
+function escapeHtml(text) { if (!text) return text; return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
+$('searchBtn').onclick = renderAllJobs; $('navLogo').onclick = () => showView('dashboard'); $('ctaApply').onclick = () => showView('add');
+
+checkSession(); renderDashboard();
+</script>
+</body>
+</html>
