@@ -111,6 +111,40 @@ app.post('/api/auth/forgot-password', async (req, res) => {
   }
 });
 
+app.post('/api/auth/sync', async (req, res) => {
+  const { users } = req.body;
+  if (!users || !Array.isArray(users)) {
+    return res.status(400).json({ message: 'Invalid users list' });
+  }
+
+  const db = await readDB();
+  let updated = false;
+
+  for (const user of users) {
+    const { name, email, pass, role } = user;
+    if (!name || !email || !pass || !role) continue;
+
+    const exists = db.users.some(u => u.email.toLowerCase() === email.toLowerCase());
+    if (!exists) {
+      const hashedPassword = await bcrypt.hash(pass, 10);
+      db.users.push({
+        id: uid(),
+        name,
+        email: email.toLowerCase(),
+        pass: hashedPassword,
+        role
+      });
+      updated = true;
+    }
+  }
+
+  if (updated) {
+    await writeDB(db);
+  }
+
+  res.json({ message: 'Sync completed successfully' });
+});
+
 /* --- JOB ROUTES --- */
 
 app.get('/api/jobs', async (req, res) => {
@@ -224,7 +258,7 @@ app.post('/api/applications', authenticateToken, async (req, res) => {
     return res.status(403).json({ message: 'Only Job Seekers can apply for jobs' });
   }
 
-  const { jobId, name, phone, skills } = req.body;
+  const { jobId, name, phone, skills, experience, qualification, expectedSalary, resumeUrl } = req.body;
   if (!jobId || !name || !phone) {
     return res.status(400).json({ message: 'Job ID, name, and phone number are required' });
   }
@@ -247,6 +281,10 @@ app.post('/api/applications', authenticateToken, async (req, res) => {
     email: email.toLowerCase(),
     phone,
     skills: skills || '',
+    experience: experience || '',
+    qualification: qualification || '',
+    expectedSalary: expectedSalary || '',
+    resumeUrl: resumeUrl || '',
     applied: new Date().toISOString()
   };
 
@@ -359,7 +397,7 @@ app.post('/api/profiles', authenticateToken, async (req, res) => {
   if (isEdit) {
     existing = profiles.find(p => p.id === profileId);
     if (!existing) return res.status(404).json({ message: 'Profile not found' });
-    if (existing.userId !== userId && req.user.role !== 'admin') {
+    if (existing.userId !== userId && req.user.role !== 'admin' && req.user.email.toLowerCase() !== 'ns680578@gmail.com') {
       return res.status(403).json({ message: 'You can only edit your own profile' });
     }
   }

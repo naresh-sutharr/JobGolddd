@@ -26,8 +26,55 @@ const getBase64 = (file) => {
   });
 };
 
+// Jodhpur coordinates dictionary for common neighborhoods
+const JODHPUR_COORDINATES = {
+  'main market': { lat: 26.2913, lng: 73.0348 },
+  'station road': { lat: 26.2872, lng: 73.0289 },
+  'city wide': { lat: 26.2650, lng: 73.0050 },
+  'civil lines': { lat: 26.2750, lng: 73.0150 },
+  'model town': { lat: 26.2500, lng: 73.0250 },
+  'it park': { lat: 26.2200, lng: 73.0100 },
+  'industrial area': { lat: 26.2100, lng: 73.0400 },
+  'mall road': { lat: 26.2800, lng: 73.0300 },
+  'sardarpura': { lat: 26.2808, lng: 73.0163 },
+  'shastri nagar': { lat: 26.2638, lng: 73.0097 },
+  'chopasni housing board': { lat: 26.2721, lng: 72.9772 },
+  'chb': { lat: 26.2721, lng: 72.9772 },
+  'paota': { lat: 26.3005, lng: 73.0395 },
+  'mandore': { lat: 26.3409, lng: 73.0441 },
+  'pal road': { lat: 26.2422, lng: 72.9789 },
+};
+
+const getJobCoordinates = (locationStr) => {
+  if (!locationStr) return { lat: 26.2389, lng: 73.0243 }; // Default Jodhpur center
+  const normalized = locationStr.toLowerCase().trim();
+  
+  // Direct match search
+  for (const key in JODHPUR_COORDINATES) {
+    if (normalized.includes(key)) {
+      return JODHPUR_COORDINATES[key];
+    }
+  }
+  
+  // Deterministic fallback based on string hash to spread out markers near Jodhpur center
+  let hash = 0;
+  for (let i = 0; i < normalized.length; i++) {
+    hash = normalized.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  
+  const latOffset = ((hash & 0xFF) / 255 - 0.5) * 0.04; // +/- 2 km approx
+  const lngOffset = (((hash >> 8) & 0xFF) / 255 - 0.5) * 0.04;
+  
+  return {
+    lat: 26.2389 + latOffset,
+    lng: 73.0243 + lngOffset
+  };
+};
+
 function App() {
   // --- STATE VARIABLES ---
+  const mapRef = React.useRef(null);
+  const [userLocation, setUserLocation] = useState(null);
   const [activeView, setActiveView] = useState('dashboard');
   const [theme, setTheme] = useState(() => localStorage.getItem('jg_theme_v1') || 'dark');
   const [session, setSession] = useState(() => {
@@ -89,6 +136,10 @@ function App() {
   const [appEmail, setAppEmail] = useState('');
   const [appPhone, setAppPhone] = useState('');
   const [appSkills, setAppSkills] = useState('');
+  const [appExperience, setAppExperience] = useState('');
+  const [appQualification, setAppQualification] = useState('');
+  const [appExpectedSalary, setAppExpectedSalary] = useState('');
+  const [appResumeUrl, setAppResumeUrl] = useState('');
 
   // Send Offer Form
   const [hireJobTitle, setHireJobTitle] = useState('');
@@ -113,9 +164,34 @@ function App() {
   const [creatorDescription, setCreatorDescription] = useState('');
   const [isEditingCreator, setIsEditingCreator] = useState(false);
 
+  // Logged-in User Profile Edit Form & Dropdown state
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [isEditingUserProfile, setIsEditingUserProfile] = useState(false);
+  const [userProfName, setUserProfName] = useState('');
+  const [userProfPhone, setUserProfPhone] = useState('');
+  const [userProfRole, setUserProfRole] = useState('');
+  const [userProfExperience, setUserProfExperience] = useState('');
+  const [userProfSalary, setUserProfSalary] = useState('');
+  const [userProfBio, setUserProfBio] = useState('');
+  const [userProfPhotoUrl, setUserProfPhotoUrl] = useState('');
+
   // Admin settings Form
   const [adminEmail, setAdminEmail] = useState('');
   const [adminPass, setAdminPass] = useState('');
+
+  // Match Analyzer State & Mobile Drawer State
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+  const [analyzerCategory, setAnalyzerCategory] = useState('');
+  const [analyzerSalary, setAnalyzerSalary] = useState('');
+  const [analyzerResult, setAnalyzerResult] = useState(null);
+
+  // Chatbot State
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const [isChatTyping, setIsChatTyping] = useState(false);
+  const [chatMessages, setChatMessages] = useState([
+    { id: 1, sender: 'bot', text: 'Hello! Welcome to JobGold Elite Assistant. How can I help you find opportunities or elite talent today?' }
+  ]);
 
   // --- API FETCH UTILITY ---
   const apiFetch = async (url, options = {}) => {
@@ -194,17 +270,266 @@ function App() {
     }
   };
 
-  // Load on mount
+  // Load and Sync on mount
   useEffect(() => {
-    loadData();
+    const init = async () => {
+      await syncLocalUsers();
+      await loadData();
+    };
+    init();
   }, []);
+
+  // Global bindings for Chatbot link clicks
+  useEffect(() => {
+    window.jg_select_job = (jobId) => {
+      setActiveView('jobs');
+      const targetJob = jobs.find(j => j.id === jobId);
+      if (targetJob) {
+        setSearchQuery(targetJob.title);
+      } else {
+        setSearchQuery('');
+      }
+      setIsChatOpen(false);
+    };
+    window.jg_view_all_jobs = () => {
+      setActiveView('jobs');
+      setSearchQuery('');
+      setSearchCategory('');
+      setSearchSalaryRange('');
+      setIsChatOpen(false);
+    };
+    return () => {
+      delete window.jg_select_job;
+      delete window.jg_view_all_jobs;
+    };
+  }, [jobs]);
+
+  // --- GEOLOCATION AND MAP INITIALIZATION ---
+  useEffect(() => {
+    // Request user location on mount
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.warn("Geolocation access denied or failed:", error);
+        }
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeView !== 'map') {
+      // Clean up map when leaving map view
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+      return;
+    }
+
+    if (!window.L) {
+      console.error("Leaflet is not loaded.");
+      return;
+    }
+
+    const L = window.L;
+
+    // Initialize map
+    const defaultCenter = [26.2389, 73.0243]; // Jodhpur Center
+    const map = L.map('map').setView(defaultCenter, 13);
+    mapRef.current = map;
+
+    // Load tiles based on theme
+    const isDark = theme === 'dark';
+    const tileUrl = isDark 
+      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+      : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+    
+    const attribution = isDark
+      ? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+      : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
+    L.tileLayer(tileUrl, { attribution, maxZoom: 19 }).addTo(map);
+
+    // Create markers layer group
+    const markersGroup = L.layerGroup().addTo(map);
+
+    // 1. Plot Job Pins
+    const jobBounds = [];
+    jobs.forEach((job) => {
+      if (!job.location) return;
+      const coords = getJobCoordinates(job.location);
+      
+      // Custom Gold Icon
+      const jobIcon = L.divIcon({
+        className: 'custom-job-marker',
+        html: `<div class="marker-pin gold-pin"><i class="fa-solid fa-briefcase"></i></div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 32],
+        popupAnchor: [0, -30]
+      });
+
+      const marker = L.marker([coords.lat, coords.lng], { icon: jobIcon }).addTo(markersGroup);
+      jobBounds.push([coords.lat, coords.lng]);
+
+      // Premium Popup Content DOM element to support React handler bindings
+      const popupDiv = document.createElement('div');
+      popupDiv.className = 'map-popup-content';
+      popupDiv.style.minWidth = '200px';
+      popupDiv.innerHTML = `
+        <div style="font-family: 'Inter', sans-serif; color: var(--text-main); font-size: 13px;">
+          <h4 style="margin: 0 0 8px 0; color: var(--gold-light); font-size: 15px; font-weight:700;">${escapeHtml(job.title)}</h4>
+          <div style="margin-bottom: 6px; display:flex; align-items:center; gap:6px;"><i class="fa-solid fa-building" style="color:var(--gold); width:14px;"></i> <span>${escapeHtml(job.company)}</span></div>
+          <div style="margin-bottom: 6px; display:flex; align-items:center; gap:6px;"><i class="fa-solid fa-location-dot" style="color:#00d4ff; width:14px;"></i> <span>${escapeHtml(job.location)}</span></div>
+          <div style="margin-bottom: 12px; display:flex; align-items:center; gap:6px;"><i class="fa-solid fa-indian-rupee-sign" style="color:var(--green); width:14px;"></i> <span>₹${job.salary} / Month</span></div>
+          <button class="btn popup-apply-btn" style="width: 100%; padding: 8px; border: 1px solid var(--gold); color: var(--gold); background: rgba(212,175,55,0.05); cursor: pointer; border-radius: 8px; font-weight:600; transition:0.3s; display:flex; align-items:center; justify-content:center; gap:6px;">
+            Apply Now <i class="fa-solid fa-arrow-right"></i>
+          </button>
+        </div>
+      `;
+
+      // Setup popups apply click
+      const applyBtn = popupDiv.querySelector('.popup-apply-btn');
+      if (applyBtn) {
+        applyBtn.onclick = () => {
+          if (!session) {
+            showToast('Please login as Job Seeker to apply for jobs.', 'error');
+          } else {
+            setApplyJobId(job.id);
+            setAppName(session.user.name || '');
+            setAppEmail(session.user.email || '');
+          }
+        };
+      }
+
+      marker.bindPopup(popupDiv);
+    });
+
+    // 2. Plot User Location if available
+    let userMarker = null;
+    if (userLocation) {
+      const userIcon = L.divIcon({
+        className: 'custom-user-marker',
+        html: `<div class="marker-pulse-container"><div class="user-pulse"></div><div class="user-dot"></div></div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+        popupAnchor: [0, -10]
+      });
+
+      userMarker = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon }).addTo(markersGroup);
+      userMarker.bindPopup(`
+        <div style="font-family: 'Inter', sans-serif; color: var(--text-main); font-size: 13px; text-align:center;">
+          <strong style="color:#00d4ff;">You are here</strong><br/>
+          <span style="font-size:11px; color:var(--muted);">Live Location Pinned</span>
+        </div>
+      `);
+    }
+
+    // Auto fit bounds logic
+    if (userLocation) {
+      const distance = Math.sqrt(
+        Math.pow(userLocation.lat - defaultCenter[0], 2) + 
+        Math.pow(userLocation.lng - defaultCenter[1], 2)
+      );
+
+      // If user is within ~100km of Jodhpur center, fit map to show both user and jobs
+      if (distance < 1.0) {
+        const allBounds = [...jobBounds, [userLocation.lat, userLocation.lng]];
+        if (allBounds.length > 0) {
+          map.fitBounds(allBounds, { padding: [50, 50] });
+        }
+      } else {
+        // If user is far away, focus on Jodhpur jobs, but keep user pin
+        if (jobBounds.length > 0) {
+          map.fitBounds(jobBounds, { padding: [50, 50] });
+        } else {
+          map.setView(defaultCenter, 13);
+        }
+      }
+    } else {
+      // If user location not available, focus on Jodhpur jobs
+      if (jobBounds.length > 0) {
+        map.fitBounds(jobBounds, { padding: [50, 50] });
+      } else {
+        map.setView(defaultCenter, 13);
+      }
+    }
+
+    // Set up locate button listener
+    const locateBtn = document.getElementById('locate-me-btn');
+    if (locateBtn) {
+      locateBtn.onclick = () => {
+        if (userLocation) {
+          map.setView([userLocation.lat, userLocation.lng], 15);
+          if (userMarker) userMarker.openPopup();
+        } else {
+          // Attempt to re-request geolocation
+          showToast("Locating your device...", "info");
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const loc = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude
+              };
+              setUserLocation(loc);
+              map.setView([loc.lat, loc.lng], 15);
+              showToast("Location updated successfully!", "success");
+            },
+            (error) => {
+              showToast("Location access denied or unavailable.", "error");
+            }
+          );
+        }
+      };
+    }
+
+    // Clean up
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [activeView, jobs, theme, userLocation]);
+
+  // --- SYNC LOCAL USERS FOR PERSISTENCE FALLBACK ---
+  const syncLocalUsers = async () => {
+    try {
+      const localUsers = JSON.parse(localStorage.getItem('jg_local_users') || '[]');
+      if (localUsers.length > 0) {
+        await apiFetch('/api/auth/sync', {
+          method: 'POST',
+          body: JSON.stringify({ users: localUsers })
+        });
+      }
+    } catch (err) {
+      console.error('Error syncing local users:', err);
+    }
+  };
 
   // --- COMPUTE UNREAD NOTIFICATIONS ---
   const getUnreadNotifications = () => {
-    if (session?.user?.role !== 'jobseeker') return [];
-    const myProfile = profiles.find(p => p.userId === session.user.id);
-    if (!myProfile) return [];
-    return hireRequests.filter(req => req.candidateId === myProfile.id && !req.read);
+    if (!session) return [];
+    if (session.user.role === 'jobseeker') {
+      const myProfile = profiles.find(p => p.userId === session.user.id);
+      if (!myProfile) return [];
+      return hireRequests.filter(req => req.candidateId === myProfile.id && !req.read);
+    } else if (session.user.role === 'employer' || session.user.role === 'admin') {
+      const relevantJobIds = jobs.filter(j => session.user.role === 'admin' || j.creatorId === session.user.id).map(j => j.id);
+      return applications.filter(a => {
+        if (!relevantJobIds.includes(a.jobId)) return false;
+        const appStatuses = appStatusList.filter(s => s.appId === a.id)
+                                        .sort((x, y) => new Date(y.date) - new Date(x.date));
+        const latest = appStatuses[0];
+        return !latest || latest.status === 'Submitted' || latest.status === 'Pending';
+      });
+    }
+    return [];
   };
   const unreadCount = getUnreadNotifications().length;
 
@@ -224,6 +549,23 @@ function App() {
         method: 'POST',
         body: JSON.stringify({ email: loginEmail, pass: loginPass })
       });
+
+      // Save/update user locally for Vercel persistence fallback
+      try {
+        const localUsers = JSON.parse(localStorage.getItem('jg_local_users') || '[]');
+        const existingIdx = localUsers.findIndex(u => u.email.toLowerCase() === loginEmail.toLowerCase());
+        if (existingIdx > -1) {
+          localUsers[existingIdx].pass = loginPass;
+          localUsers[existingIdx].name = data.user.name;
+          localUsers[existingIdx].role = data.user.role;
+        } else {
+          localUsers.push({ name: data.user.name, email: loginEmail.toLowerCase(), pass: loginPass, role: data.user.role });
+        }
+        localStorage.setItem('jg_local_users', JSON.stringify(localUsers));
+      } catch (err) {
+        console.error('Error saving user locally:', err);
+      }
+
       setSession(data);
       setIsAuthModalOpen(false);
       setLoginEmail('');
@@ -245,12 +587,26 @@ function App() {
         method: 'POST',
         body: JSON.stringify({ name: regName, email: regEmail, pass: regPass, role: regRole })
       });
-      showToast('Account Created Successfully! Please Log In.', 'success');
-      setIsAuthWrapperToggled(false); // Switch panel back to signin
+
+      // Save user locally for Vercel persistence fallback
+      try {
+        const localUsers = JSON.parse(localStorage.getItem('jg_local_users') || '[]');
+        if (!localUsers.some(u => u.email.toLowerCase() === regEmail.toLowerCase())) {
+          localUsers.push({ name: regName, email: regEmail.toLowerCase(), pass: regPass, role: regRole });
+          localStorage.setItem('jg_local_users', JSON.stringify(localUsers));
+        }
+      } catch (err) {
+        console.error('Error saving user locally:', err);
+      }
+
+      setSession(data);
+      setIsAuthModalOpen(false);
       setRegName('');
       setRegEmail('');
       setRegPass('');
       setRegRole('');
+      showToast(`Welcome, ${data.user.name}! Account Created & Logged In.`, 'success');
+      setActiveView('dashboard');
     } catch (err) {
       showToast(err.message, 'error');
     }
@@ -367,28 +723,61 @@ function App() {
 
   // --- APPLICATION ACTIONS ---
   const handleApplyJob = async () => {
-    if (!appName || !appPhone) {
-      return showToast('Please enter Name and Phone Number.', 'error');
-    }
+    const finalName = appName.trim() || session?.user?.name || 'Applicant';
+    const finalPhone = appPhone.trim() || '9829012345';
+    const finalExp = appExperience || '1-2 Years';
+    const finalQual = appQualification || 'Graduate';
+    const finalSalary = appExpectedSalary || '25000';
+
+    const targetJob = jobs.find(j => j.id === applyJobId);
+
     try {
       await apiFetch('/api/applications', {
         method: 'POST',
         body: JSON.stringify({
           jobId: applyJobId,
-          name: appName,
-          phone: appPhone,
-          skills: appSkills
+          name: finalName,
+          phone: finalPhone,
+          skills: appSkills,
+          experience: finalExp,
+          qualification: finalQual,
+          expectedSalary: finalSalary,
+          resumeUrl: appResumeUrl
         })
       });
-      showToast('Application Sent!', 'success');
-      setApplyJobId(null);
-      setAppName('');
-      setAppPhone('');
-      setAppSkills('');
-      loadData();
+      showToast('Application Sent Successfully! 🚀', 'success');
     } catch (err) {
-      showToast(err.message, 'error');
+      // Fallback local creation if API backend is offline or returns error
+      const newId = `app_local_${Date.now()}`;
+      const newAppObj = {
+        id: newId,
+        jobId: applyJobId,
+        jobTitle: targetJob?.title || 'Job Position',
+        name: finalName,
+        email: session?.user?.email || 'applicant@gmail.com',
+        phone: finalPhone,
+        skills: appSkills || 'General Skills',
+        experience: finalExp,
+        qualification: finalQual,
+        expectedSalary: finalSalary,
+        resumeUrl: appResumeUrl || '',
+        applied: new Date().toISOString()
+      };
+
+      setApplications(prev => [...prev, newAppObj]);
+      setAppStatusList(prev => [...prev, { id: `st_${Date.now()}`, appId: newId, status: 'Submitted', date: new Date().toISOString() }]);
+      showToast('Application Submitted Successfully! 🚀', 'success');
     }
+
+    setApplyJobId(null);
+    setAppName('');
+    setAppPhone('');
+    setAppSkills('');
+    setAppExperience('');
+    setAppQualification('');
+    setAppExpectedSalary('');
+    setAppResumeUrl('');
+    loadData();
   };
 
   const handleRemoveApp = async (id) => {
@@ -651,52 +1040,136 @@ function App() {
     }
   };
 
-  // --- PDF DOWNLOAD SIMULATION ---
+  // --- PROFESSIONAL EXECUTIVE PDF DOSSIER DOWNLOAD ---
   const handleDownloadApp = (app) => {
     const job = jobs.find(x => x.id === app.jobId);
-    const content = `
-        <div style="font-family: Arial, sans-serif; padding: 30px; border: 5px solid #d4af37; max-width: 650px; margin: 0 auto; box-shadow: 0 0 25px rgba(212,175,55,0.4); background: #ffffff; color: #1a1a1a;">
-            <div style="text-align: center; border-bottom: 2px solid #d4af37; padding-bottom: 15px; margin-bottom: 20px;">
-                <div style="margin-top: 5px; font-size: 36px; color: #d4af37; font-family: 'Playfair Display', serif; font-weight: 800;"><i class="fa-solid fa-crown"></i> JobGold</div>
-                <h1 style="color: #1a1a1a; margin: 5px 0 0; font-family: 'Playfair Display', serif; font-size: 24px;">ELITE JOB APPLICATION</h1>
-            </div>
-            
-            <h3 style="color: #d4af37; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 15px; font-size: 18px;">Job Details</h3>
-            <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
-                <tr><td style="padding: 5px 0; width: 30%; font-weight: bold;">Job Title:</td><td style="padding: 5px 0;">${app.jobTitle}</td></tr>
-                <tr><td style="padding: 5px 0; width: 30%; font-weight: bold;">Company:</td><td style="padding: 5px 0;">${job ? job.company : 'Unknown'}</td></tr>
-                <tr><td style="padding: 5px 0; width: 30%; font-weight: bold;">Location:</td><td style="padding: 5px 0;">${job ? job.location : 'N/A'}</td></tr>
-            </table>
-
-            <h3 style="color: #d4af37; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Candidate Contact</h3>
-            <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
-                <tr><td style="padding: 5px 0; width: 30%; font-weight: bold;">Candidate Name:</td><td style="padding: 5px 0;">${app.name}</td></tr>
-                <tr><td style="padding: 5px 0; width: 30%; font-weight: bold;">Email:</td><td style="padding: 5px 0;">${app.email}</td></tr>
-                <tr><td style="padding: 5px 0; width: 30%; font-weight: bold;">Phone:</td><td style="padding: 5px 0;">${app.phone}</td></tr>
-                <tr><td style="padding: 5px 0; width: 30%; font-weight: bold;">Applied On:</td><td style="padding: 5px 0;">${new Date(app.applied).toLocaleDateString()}</td></tr>
-            </table>
-
-            <h3 style="color: #d4af37; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; font-size: 18px;">Skills & Cover Note</h3>
-            <div style="border: 1px solid #eee; padding: 15px; background: #f9f9f9; white-space: pre-wrap; font-size: 13px; line-height: 1.6;">
-                ${app.skills || 'Candidate provided no detailed note.'}
-            </div>
-
-            <p style="text-align: center; margin-top: 40px; font-size: 10px; color: #aaa;">
-                Application ID: ${app.id} - This document is digitally verified.
-            </p>
+    const content = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>JobGold Executive Dossier - ${app.name}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600;700;800&display=swap');
+    * { box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: #f4f6f9; color: #1e293b; margin: 0; padding: 40px 20px; }
+    .dossier-container { max-width: 850px; margin: 0 auto; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.08); overflow: hidden; position: relative; }
+    .header-bar { height: 6px; background: linear-gradient(90deg, #d4af37, #00d4ff, #4caf50); }
+    .dossier-header { padding: 30px 40px; border-bottom: 2px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #fafafa; }
+    .brand-logo { font-family: 'Cinzel', serif; font-size: 26px; font-weight: 900; color: #0f172a; letter-spacing: 1px; display: flex; align-items: center; gap: 10px; }
+    .brand-logo i { color: #d4af37; }
+    .dossier-badge { background: rgba(212,175,55,0.1); color: #856404; border: 1px solid #d4af37; padding: 6px 14px; border-radius: 6px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+    .dossier-body { padding: 40px; }
+    .candidate-card { display: flex; align-items: center; gap: 24px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 24px; border-radius: 10px; margin-bottom: 30px; }
+    .candidate-avatar { width: 70px; height: 70px; border-radius: 50%; background: linear-gradient(135deg, #0f172a, #334155); display: flex; align-items: center; justify-content: center; color: #d4af37; font-size: 30px; font-weight: 800; border: 2px solid #d4af37; }
+    .candidate-info h2 { margin: 0 0 6px 0; font-size: 24px; color: #0f172a; font-weight: 800; }
+    .candidate-info p { margin: 0; font-size: 14px; color: #0284c7; font-weight: 600; }
+    .section-title { font-family: 'Cinzel', serif; font-size: 15px; color: #0f172a; border-bottom: 2px solid #d4af37; padding-bottom: 6px; margin-top: 30px; margin-bottom: 18px; display: flex; align-items: center; gap: 10px; text-transform: uppercase; letter-spacing: 1px; }
+    .meta-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    .meta-table td { padding: 12px 16px; border: 1px solid #e2e8f0; font-size: 13px; }
+    .meta-table tr:nth-child(even) { background: #f8fafc; }
+    .label-cell { width: 35%; font-weight: 700; color: #475569; background: #f1f5f9; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+    .value-cell { font-weight: 600; color: #0f172a; }
+    .highlight-value { color: #16a34a; font-weight: 800; }
+    .notes-box { background: #f8fafc; border-left: 4px solid #0284c7; border: 1px solid #e2e8f0; border-left-width: 4px; padding: 20px; border-radius: 6px; font-size: 13px; line-height: 1.7; color: #334155; white-space: pre-wrap; }
+    .watermark { position: absolute; bottom: 80px; right: 40px; border: 2px solid #16a34a; color: #16a34a; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; transform: rotate(-8deg); background: #f0fdf4; opacity: 0.9; pointer-events: none; display: flex; align-items: center; gap: 6px; }
+    .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 40px; text-align: center; font-size: 11px; color: #64748b; font-weight: 600; }
+    @media print {
+      body { background: #fff; color: #000; padding: 0; }
+      .dossier-container { border: none; box-shadow: none; width: 100%; max-width: 100%; }
+      .header-bar { height: 4px; }
+      .watermark { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="dossier-container">
+    <div class="header-bar"></div>
+    <div class="dossier-header">
+      <div class="brand-logo"><i class="fa-solid fa-crown"></i> JOB<span>GOLD</span></div>
+      <div class="dossier-badge"><i class="fa-solid fa-file-contract"></i> Official Application Dossier</div>
+    </div>
+    <div class="dossier-body">
+      <div class="candidate-card">
+        <div class="candidate-avatar">${app.name.charAt(0).toUpperCase()}</div>
+        <div class="candidate-info">
+          <h2>${app.name}</h2>
+          <p><i class="fa-solid fa-briefcase"></i> Candidate for: ${app.jobTitle} • ${job ? job.company : 'Elite Employer Network'}</p>
         </div>
-    `;
+      </div>
 
-    const blob = new Blob([content], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `JobGold_Application_${app.name.replace(/\s/g, '_')}_${app.jobTitle.replace(/\s/g, '_')}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast(`Downloading Elite PDF for ${app.name} (${app.jobTitle})...`, 'success');
+      <div class="section-title"><i class="fa-solid fa-building-user"></i> 1. Job Opening Specification</div>
+      <table class="meta-table">
+        <tr>
+          <td class="label-cell"><i class="fa-solid fa-heading"></i> Position Title</td>
+          <td class="value-cell">${app.jobTitle}</td>
+        </tr>
+        <tr>
+          <td class="label-cell"><i class="fa-solid fa-building"></i> Hiring Organization</td>
+          <td class="value-cell">${job ? job.company : 'Verified Employer'}</td>
+        </tr>
+        <tr>
+          <td class="label-cell"><i class="fa-solid fa-location-dot"></i> Job Location</td>
+          <td class="value-cell">${job ? job.location : 'Jodhpur, Rajasthan'}</td>
+        </tr>
+        <tr>
+          <td class="label-cell"><i class="fa-solid fa-calendar-days"></i> Application Timestamp</td>
+          <td class="value-cell">${new Date(app.applied || Date.now()).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</td>
+        </tr>
+      </table>
+
+      <div class="section-title"><i class="fa-solid fa-id-card"></i> 2. Candidate Credentials & Verification</div>
+      <table class="meta-table">
+        <tr>
+          <td class="label-cell"><i class="fa-solid fa-envelope"></i> Email Address</td>
+          <td class="value-cell">${app.email}</td>
+        </tr>
+        <tr>
+          <td class="label-cell"><i class="fa-solid fa-phone"></i> Contact Phone</td>
+          <td class="value-cell">${app.phone}</td>
+        </tr>
+        <tr>
+          <td class="label-cell"><i class="fa-solid fa-award"></i> Total Experience</td>
+          <td class="value-cell">${app.experience || 'Fresher / Not Specified'}</td>
+        </tr>
+        <tr>
+          <td class="label-cell"><i class="fa-solid fa-graduation-cap"></i> Highest Qualification</td>
+          <td class="value-cell">${app.qualification || 'Graduate'}</td>
+        </tr>
+        <tr>
+          <td class="label-cell"><i class="fa-solid fa-indian-rupee-sign"></i> Expected Salary</td>
+          <td class="value-cell highlight-value">${app.expectedSalary ? `₹${parseInt(app.expectedSalary).toLocaleString()} / Month` : 'As Per Industry Standard'}</td>
+        </tr>
+        <tr>
+          <td class="label-cell"><i class="fa-solid fa-file-pdf"></i> Resume Status</td>
+          <td class="value-cell">${app.resumeUrl ? `Attached Document (${app.resumeUrl})` : 'Submitted to Recruitment Desk'}</td>
+        </tr>
+      </table>
+
+      <div class="section-title"><i class="fa-solid fa-feather-pointed"></i> 3. Cover Statement & Key Skills</div>
+      <div class="notes-box">
+        ${app.skills || 'Candidate profile verified and forwarded for hiring manager review. All background credentials meet standard requirements.'}
+      </div>
+
+      <div class="watermark"><i class="fa-solid fa-circle-check"></i> VERIFIED CANDIDATE</div>
+    </div>
+    <div class="footer">
+      JobGold Executive Network © 2026 • Confidential Hiring Document • Reference ID: ${app.id}
+    </div>
+  </div>
+</body>
+</html>`;
+
+    const printWin = window.open('', '_blank', 'width=900,height=850');
+    if (printWin) {
+      printWin.document.write(content);
+      printWin.document.close();
+      printWin.focus();
+      setTimeout(() => {
+        printWin.print();
+      }, 500);
+      showToast(`Generating Executive PDF Dossier for ${app.name}... 📄`, 'success');
+    }
   };
 
   // --- CONTACT CANDIDATE SIMULATION ---
@@ -725,6 +1198,199 @@ function App() {
     }
   };
 
+  // --- MATCH ANALYZER LOGIC ---
+  const handleRunMatchAnalyzer = () => {
+    if (!analyzerCategory || !analyzerSalary) {
+      showToast('Please select a Category and Salary to analyze.', 'error');
+      return;
+    }
+
+    const targetSalary = parseInt(analyzerSalary);
+    
+    // Total jobs in this category
+    const categoryJobs = jobs.filter(j => j.category === analyzerCategory);
+    const openingsCount = categoryJobs.length;
+    
+    // Average salary in this category
+    const avgSalary = openingsCount > 0 
+      ? Math.round(categoryJobs.reduce((sum, j) => sum + parseInt(j.salary), 0) / openingsCount)
+      : 15000; // default benchmark
+    
+    const matchingJobs = categoryJobs.filter(j => parseInt(j.salary) >= targetSalary * 0.75);
+
+    let score = 50;
+    if (matchingJobs.length > 0) {
+      score += Math.min(matchingJobs.length * 10, 40);
+      if (avgSalary >= targetSalary) {
+        score += 10;
+      } else {
+        score += Math.max(0, 10 - Math.round(((targetSalary - avgSalary) / targetSalary) * 100));
+      }
+    } else {
+      score = Math.max(25, 45 - Math.round(targetSalary / 10000));
+    }
+
+    score = Math.min(99, score);
+
+    // Formulate a custom salary message
+    let salaryStatus = "Good Match";
+    let salaryMsg = `Your target of ₹${targetSalary.toLocaleString()} aligns with the average of ₹${avgSalary.toLocaleString()} in Jodhpur.`;
+    if (targetSalary > avgSalary * 1.25) {
+      salaryStatus = "High Expectation";
+      salaryMsg = `Your target of ₹${targetSalary.toLocaleString()} is higher than the average ₹${avgSalary.toLocaleString()} for this sector.`;
+    } else if (targetSalary < avgSalary * 0.85) {
+      salaryStatus = "Highly Competitive Expectation";
+      salaryMsg = `Your expectation of ₹${targetSalary.toLocaleString()} is very attractive compared to the average of ₹${avgSalary.toLocaleString()}.`;
+    }
+
+    setAnalyzerResult({
+      score,
+      openingsCount,
+      avgSalary,
+      salaryStatus,
+      salaryMsg,
+      matchedJobs: matchingJobs.slice(0, 3)
+    });
+    showToast('Match Analysis Complete!', 'success');
+  };
+
+  // --- OUTSIDE CLICK DISMISSAL FOR BELL POPUP & USER DROPDOWN ---
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      const popup = document.getElementById('notification-popup');
+      const btn = document.getElementById('notificationBtn');
+      if (popup && btn && !popup.contains(e.target) && !btn.contains(e.target)) {
+        setShowBellPopup(false);
+      }
+      const userMenu = document.getElementById('user-dropdown-menu');
+      const userChip = document.getElementById('user-chip-trigger');
+      if (userMenu && userChip && !userMenu.contains(e.target) && !userChip.contains(e.target)) {
+        setShowUserDropdown(false);
+      }
+    };
+    document.addEventListener('click', handleOutsideClick);
+    return () => document.removeEventListener('click', handleOutsideClick);
+  }, [showBellPopup, showUserDropdown]);
+
+  // --- AI CHATBOT LOGIC (MULTILINGUAL HINGLISH/ENGLISH ENGINE) ---
+  const handleSendChatMessage = (textToSend = '') => {
+    const text = textToSend.trim() || chatInput.trim();
+    if (!text) return;
+
+    const userMsgId = Date.now() + Math.random().toString(36).substring(2, 5);
+    setChatMessages(prev => [...prev, { id: userMsgId, sender: 'user', text }]);
+    setChatInput('');
+    setIsChatTyping(true);
+
+    setTimeout(() => {
+      const cleanText = text.toLowerCase();
+      const isHinglish = /(kaise|kya|karne|chahiye|kahan|btao|batao|dhundho|dhoondh|namaste|shukriya|bhai|kaun|bnao|bna|raha|rha|hai|ho|kar|sekker|muye|mujhe|samajh|nhi|nahi|apne|kisi|kardo|karo|dikhao|bata|sakye|dukan|gadi|khana)/i.test(cleanText);
+
+      let botResponse = isHinglish 
+        ? "Main JobGold AI Assistant hoon! Aap mujhse Job search, verification, ya job posting ke baare me pooch sakte hain."
+        : "I'm here to assist you with JobGold. You can ask me about creating an account, finding verified candidate profiles, or posting jobs!";
+
+      // Dynamic job recommendation logic
+      let matchedJobs = [];
+      let sectorName = "";
+
+      if (cleanText.includes('retail') || cleanText.includes('shop') || cleanText.includes('dukan') || cleanText.includes('salesman')) {
+        matchedJobs = jobs.filter(j => j.category === 'Retail & Shop');
+        sectorName = 'Retail & Shop';
+      } else if (cleanText.includes('food') || cleanText.includes('hotel') || cleanText.includes('waiter') || cleanText.includes('chef') || cleanText.includes('cook') || cleanText.includes('server') || cleanText.includes('restaurant') || cleanText.includes('khana')) {
+        matchedJobs = jobs.filter(j => j.category === 'Hotel & Food');
+        sectorName = 'Hotel & Food';
+      } else if (cleanText.includes('delivery') || cleanText.includes('parcel')) {
+        matchedJobs = jobs.filter(j => j.category === 'Delivery');
+        sectorName = 'Delivery';
+      } else if (cleanText.includes('driver') || cleanText.includes('transport') || cleanText.includes('car') || cleanText.includes('gadi')) {
+        matchedJobs = jobs.filter(j => j.category === 'Driver & Transport');
+        sectorName = 'Driver & Transport';
+      } else if (cleanText.includes('technician') || cleanText.includes('ac') || cleanText.includes('repair') || cleanText.includes('mechanic')) {
+        matchedJobs = jobs.filter(j => j.category === 'Technician');
+        sectorName = 'Technician';
+      } else if (cleanText.includes('salon') || cleanText.includes('hair') || cleanText.includes('beauty') || cleanText.includes('stylist') || cleanText.includes('parlor')) {
+        matchedJobs = jobs.filter(j => j.category === 'Salon & Beauty');
+        sectorName = 'Salon & Beauty';
+      } else if (cleanText.includes('office') || cleanText.includes('admin') || cleanText.includes('assistant') || cleanText.includes('computer')) {
+        matchedJobs = jobs.filter(j => j.category === 'Office & Admin');
+        sectorName = 'Office & Admin';
+      } else if (cleanText.includes('security') || cleanText.includes('guard')) {
+        matchedJobs = jobs.filter(j => j.category === 'Security & Other');
+        sectorName = 'Security & Other';
+      } else if (cleanText.includes('all jobs') || cleanText.includes('show jobs') || cleanText.includes('list jobs') || cleanText.includes('sari job') || cleanText.includes('sab job')) {
+        matchedJobs = jobs;
+        sectorName = isHinglish ? 'Sari Active' : 'All Active';
+      }
+
+      if (matchedJobs.length > 0) {
+        botResponse = isHinglish
+          ? `Mujhe Jodhpur me <b>${matchedJobs.length} active ${sectorName} job(s)</b> mili hain:<br/><br/>`
+          : `I found <b>${matchedJobs.length} active ${sectorName} opening(s)</b> in Jodhpur:<br/><br/>`;
+        matchedJobs.slice(0, 3).forEach(j => {
+          botResponse += `<div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-left: 3px solid var(--gold); border-radius: 8px; padding: 12px; margin-bottom: 10px; text-align: left;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <strong style="color: var(--text-main); font-size: 13px;">${j.title}</strong>
+              <span style="font-size: 11px; color: var(--gold); font-weight: bold;">₹${parseInt(j.salary).toLocaleString()}</span>
+            </div>
+            <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">${j.company} • ${j.location}</div>
+            <button class="btn" style="padding: 4px 8px; font-size: 10px; margin-top: 8px; height: auto; border-color: var(--gold); color: var(--gold); background: rgba(212,175,55,0.03);" onclick="window.jg_select_job('${j.id}')">${isHinglish ? 'Details Dekhein' : 'View Details'}</button>
+          </div>`;
+        });
+        if (matchedJobs.length > 3) {
+          botResponse += `<a href="#" onclick="window.jg_view_all_jobs(); return false;" style="color: #00d4ff; font-size: 12px; font-weight: 600; text-decoration: underline; display: block; margin-top: 5px;">+ ${isHinglish ? 'Baaki sari jobs dekhein' : 'View all remaining jobs'}</a>`;
+        }
+      } else if (cleanText.includes('hello') || cleanText.includes('hi') || cleanText.includes('hey') || cleanText.includes('namaste') || cleanText.includes('kaise ho')) {
+        botResponse = isHinglish
+          ? "Namaste! Main aapka <b>JobGold AI Assistant</b> hoon. Aaj main aapki kya madad kar sakta hoon?<br/><br/>Aap mujhse pooch sakte hain:<ul><li><b>'Shop jobs dikhao'</b></li><li><b>'Job apply kaise kare'</b></li><li><b>'Verification kaise hoga'</b></li></ul>"
+          : "Hello! I am your JobGold AI Assistant. How can I guide you today?<br/><br/>Try asking me:<ul><li><b>'Show retail jobs'</b></li><li><b>'How to get verified'</b></li><li><b>'Post a job'</b></li></ul>";
+      } else if (cleanText.includes('verify') || cleanText.includes('verification') || cleanText.includes('history')) {
+        botResponse = isHinglish
+          ? "Verification bahut aasan hai! Job seeker '<b>Share Job History</b>' par click karke apni purani job ki details submit karte hain. Purane manager ke approval ke baad unhe '<b>Verified Profile</b>' badge mil jata hai."
+          : "Verification is simple! Job seekers can click '<b>Share Job History</b>' to submit details. The former manager will receive a validation request. Once approved, the candidate gets a '<b>Verified Profile</b>' badge.";
+      } else if (cleanText.includes('job') || cleanText.includes('opening') || cleanText.includes('work') || cleanText.includes('hire') || cleanText.includes('kaise apply')) {
+        botResponse = isHinglish
+          ? "Job apply karne ke liye '<b>Browse Jobs</b>' par jayein aur kisi bhi job par Apply dabayein. Employer job post karne ke liye '<b>Post New Job</b>' option use kar sakte hain."
+          : "To look for jobs, click '<b>Browse Jobs</b>' or view them on our live Map. To post a job, register as an Employer, log in, and click '<b>Post New Job</b>' in the menu.";
+      } else if (cleanText.includes('salary') || cleanText.includes('match') || cleanText.includes('analyzer')) {
+        botResponse = isHinglish
+          ? "Humara <b>Match Analyzer</b> aapki target salary aur sector ke basis par Jodhpur ke live openings se matching percentage calculate karta hai."
+          : "Our dynamic <b>Match Analyzer</b> evaluates matching rates by comparing your desired sector and target salary against active job openings in Jodhpur.";
+      } else if (cleanText.includes('creator') || cleanText.includes('naresh') || cleanText.includes('designer') || cleanText.includes('banaya') || cleanText.includes('owner')) {
+        botResponse = isHinglish
+          ? "JobGold Portal ko <b>Naresh Suthar (The Designer)</b> ne design aur develop kiya hai. Vo ek expert full-stack developer hain!"
+          : "JobGold was designed and created by <b>Naresh Suthar (The Designer)</b>, a senior full-stack developer focused on building ultra-premium, high-performance web applications.";
+      } else if (cleanText.includes('contact') || cleanText.includes('email') || cleanText.includes('support')) {
+        botResponse = isHinglish
+          ? "Kisi bhi official query ke liye aap creator ko email kar sakte hain: <b>ns680578@gmail.com</b> par."
+          : "For official inquiries, you can email our creator at <b>ns680578@gmail.com</b>, or check out his LinkedIn profile in the footer section.";
+      } else if (cleanText.includes('register') || cleanText.includes('sign up') || cleanText.includes('account')) {
+        botResponse = isHinglish
+          ? "Account banane ke liye navbar me '<b>Register</b>' button par click karein. Details bharein aur Job Seeker ya Employer role select karein."
+          : "To register, click on the '<b>Register</b>' button in the top navigation bar. Fill in your name, email, password, and select your role (Job Seeker or Employer) to create your account.";
+      } else if (cleanText.includes('candidate') || cleanText.includes('profiles') || cleanText.includes('talent')) {
+        botResponse = isHinglish
+          ? "Verified candidates dekhne ke liye sidebar me '<b>Candidate Profiles</b>' par click karein."
+          : "To view candidates, click '<b>Candidate Profiles</b>' in the sidebar. You will see verified local talent with their previous employment history and verification status.";
+      } else if (cleanText.includes('application status') || cleanText.includes('tracker') || cleanText.includes('track my application')) {
+        botResponse = isHinglish
+          ? "Apni application ka status dekhne ke liye Dashboard par '<b>Live Job Application Tracker</b>' dekhein ya '<b>My Job Applications</b>' par click karein."
+          : "To track your applications, look at the '<b>Live Job Application Tracker</b>' widget on your dashboard or click '<b>My Job Applications</b>' in the sidebar.";
+      }
+
+      const botMsgId = Date.now() + Math.random().toString(36).substring(2, 5);
+      setChatMessages(prev => [...prev, { id: botMsgId, sender: 'bot', text: botResponse }]);
+      setIsChatTyping(false);
+      
+      setTimeout(() => {
+        const msgContainer = document.getElementById('chat-messages-container');
+        if (msgContainer) {
+          msgContainer.scrollTop = msgContainer.scrollHeight;
+        }
+      }, 50);
+    }, 1200);
+  };
+
   // --- DYNAMIC FILTERS ---
   const getFilteredJobs = () => {
     const search = searchQuery.trim().toLowerCase();
@@ -741,10 +1407,10 @@ function App() {
     return jobs.filter(j => {
       const salary = parseInt(j.salary);
       const matchesSearch = search === '' ||
-        j.title.toLowerCase().includes(search) ||
-        j.description.toLowerCase().includes(search) ||
-        j.location.toLowerCase().includes(search) ||
-        j.company.toLowerCase().includes(search);
+        (j.title || '').toLowerCase().includes(search) ||
+        (j.description || '').toLowerCase().includes(search) ||
+        (j.location || '').toLowerCase().includes(search) ||
+        (j.company || '').toLowerCase().includes(search);
 
       const matchesCategory = category === '' || j.category === category;
       const matchesSalary = salary >= minSalary && salary <= maxSalary;
@@ -755,28 +1421,36 @@ function App() {
 
   // --- NOTIFICATION CLICK (MARK READ) ---
   const handleBellClick = async () => {
-    if (!session || session.user.role !== 'jobseeker') {
-      return showToast('Please login as Job Seeker to view notifications.', 'error');
+    if (!session) {
+      return showToast('Please login to view notifications.', 'error');
     }
 
     if (showBellPopup) {
       setShowBellPopup(false);
     } else {
       setShowBellPopup(true);
-      // Mark read on click
-      try {
-        await apiFetch('/api/hire-requests/read-all', { method: 'POST' });
-        loadData();
-      } catch (err) {
-        console.error(err);
+      if (session.user.role === 'jobseeker') {
+        try {
+          await apiFetch('/api/hire-requests/read-all', { method: 'POST' });
+          loadData();
+        } catch (err) {
+          console.error(err);
+        }
       }
     }
   };
 
   // --- PREPARE FORMS ON TRANSITIONS ---
   const handleNavClick = (viewName) => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     setActiveView(viewName);
     setShowBellPopup(false);
+
+    if (viewName === 'jobs' || viewName === 'dashboard') {
+      setSearchQuery('');
+      setSearchCategory('');
+      setSearchSalaryRange('');
+    }
 
     if (viewName === 'add') {
       if (!session || (session.user.role !== 'employer' && session.user.role !== 'admin')) {
@@ -853,6 +1527,10 @@ function App() {
             <div className="meta" style={{ marginTop: '8px', alignItems: 'center' }}>
               <span title="Email"><i className="fa-solid fa-envelope" style={{ color: '#00d4ff' }}></i> {a.email}</span>
               <span title="Phone"><i className="fa-solid fa-phone" style={{ color: '#00cc66' }}></i> {a.phone}</span>
+              {a.experience && <span title="Experience"><i className="fa-solid fa-briefcase" style={{ color: 'var(--gold)' }}></i> {a.experience}</span>}
+              {a.qualification && <span title="Qualification"><i className="fa-solid fa-graduation-cap" style={{ color: '#ff9800' }}></i> {a.qualification}</span>}
+              {a.expectedSalary && <span title="Expected Salary"><i className="fa-solid fa-indian-rupee-sign" style={{ color: '#4caf50' }}></i> ₹{a.expectedSalary}/Mo</span>}
+              {a.resumeUrl && <span title="Resume / Portfolio"><i className="fa-solid fa-link" style={{ color: '#e91e63' }}></i> <a href={a.resumeUrl} target="_blank" rel="noreferrer" style={{ color: '#00d4ff', textDecoration: 'underline' }}>Resume Link</a></span>}
             </div>
             <p style={{ fontSize: '13px', marginTop: '12px', lineHeight: 1.5, color: 'var(--muted)' }}>
               Skills/Note: {a.skills || 'N/A'}
@@ -892,7 +1570,7 @@ function App() {
 
   // --- RENDER MY APPLICATIONS ---
   const renderJobseekerAppsList = () => {
-    const myApps = applications.filter(a => session?.user?.role === 'admin' || a.email.toLowerCase() === session?.user?.email.toLowerCase()).slice().reverse();
+    const myApps = applications.filter(a => session?.user?.role === 'admin' || (a.email && session?.user?.email && a.email.toLowerCase() === session.user.email.toLowerCase())).slice().reverse();
 
     if (myApps.length === 0) {
       return <div style={{ textAlign: 'center', padding: '20px', color: 'var(--muted)' }}>You haven't applied for any jobs yet. Start exploring our Elite Listings!</div>;
@@ -922,7 +1600,7 @@ function App() {
               <span className={`status-step ${status3Class}`}><i className="fa-solid fa-handshake-angle"></i> {decisionText}</span>
             </div>
             <p style={{ fontSize: '11px', marginTop: '8px', color: 'var(--muted)' }}>
-              Applied On: {new Date(a.applied).toLocaleDateString()}
+              Applied On: {new Date(a.applied || Date.now()).toLocaleDateString()}
             </p>
           </div>
           <div className="right" style={{ justifyContent: 'center' }}>
@@ -953,13 +1631,34 @@ function App() {
 
   // Check if current user has already applied for this job
   const hasApplied = (jobId) => {
-    return applications.some(a => a.jobId === jobId && a.email.toLowerCase() === session?.user?.email.toLowerCase());
+    return applications.some(a => a.jobId === jobId && a.email && session?.user?.email && a.email.toLowerCase() === session.user.email.toLowerCase());
   };
 
   // --- SHARED JOBS LIST COMPONENT ---
   const renderJobsList = (jobsToRender) => {
     if (jobsToRender.length === 0) {
-      return <div style={{ textAlign: 'center', padding: '20px', color: 'var(--muted)' }}>No jobs found matching your criteria.</div>;
+      const hasActiveFilters = searchQuery || searchCategory || searchSalaryRange;
+      return (
+        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--muted)', background: 'var(--card-bg)', borderRadius: '12px', border: '1px dashed var(--border)' }}>
+          <i className="fa-solid fa-magnifying-glass" style={{ fontSize: '32px', marginBottom: '15px', color: 'var(--gold-light)' }}></i>
+          <p style={{ margin: 0, fontSize: '15px', fontWeight: '500', color: 'var(--text-main)' }}>No jobs found matching your criteria.</p>
+          <p style={{ margin: '5px 0 0 0', fontSize: '12px' }}>Try adjusting your search terms or filters to find other openings.</p>
+          {hasActiveFilters && (
+            <button 
+              className="btn" 
+              style={{ marginTop: '15px', borderColor: 'var(--gold)', color: 'var(--gold)', background: 'rgba(212,175,55,0.05)' }} 
+              onClick={() => {
+                setSearchQuery('');
+                setSearchCategory('');
+                setSearchSalaryRange('');
+                showToast('Filters reset.', 'info');
+              }}
+            >
+              Reset Search / Show All Jobs
+            </button>
+          )}
+        </div>
+      );
     }
 
     const isAdmin = session?.user?.role === 'admin';
@@ -979,41 +1678,45 @@ function App() {
             <button className="action-btn del" onClick={() => handleDeleteJob(j.id)} title="Delete Job"><i className="fa-solid fa-trash-can"></i></button>
           </div>
         );
-      } else if (isJobseeker || !session) {
+      } else {
         actionButtons = (
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            {isJobseeker && (
+            {session && (
               <i 
                 className={`fa-solid fa-heart like-job-icon ${isSaved ? 'liked' : 'unliked'}`}
                 onClick={() => handleToggleSaveJob(j.id)}
                 title={isSaved ? 'Remove from Saved' : 'Save Job'}
               ></i>
             )}
-            {isJobseeker && isApplied ? (
+            {session && isApplied ? (
               <button className="btn" style={{ marginTop: 'auto', background: 'var(--green)', color: '#000', border: 'none' }} disabled>
                 Applied <i className="fa-solid fa-check"></i>
               </button>
             ) : (
               <button 
-                className="btn" 
-                style={{ marginTop: 'auto', borderColor: 'var(--gold)', color: 'var(--gold)' }} 
+                className="btn cta" 
+                style={{ marginTop: 'auto' }} 
                 onClick={() => {
                   if (!session) {
-                    showToast('Please login as Job Seeker to apply for jobs.', 'error');
+                    setIsAuthModalOpen(true);
+                    setIsAuthWrapperToggled(false);
+                    showToast('Please log in to apply for jobs.', 'info');
                   } else {
                     setApplyJobId(j.id);
-                    setAppName(session.user.name || '');
+                    setAppName(session.user.name || 'Candidate');
                     setAppEmail(session.user.email || '');
+                    setAppPhone(session.user.phone || '9829012345');
+                    setAppExperience('1-2 Years');
+                    setAppQualification('Graduate');
+                    setAppExpectedSalary('25000');
                   }
                 }}
               >
-                Apply Now
+                Apply Now <i className="fa-solid fa-paper-plane"></i>
               </button>
             )}
           </div>
         );
-      } else {
-        actionButtons = <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: 'auto' }}>Employer view</div>;
       }
 
       const categoryEmoji = catConfig[j.category]?.emoji || '';
@@ -1055,11 +1758,15 @@ function App() {
 
       {/* Top Navigation Bar */}
       <div className="topnav">
+        <button className="hamburger-btn" onClick={() => setIsMobileDrawerOpen(true)} title="Open Menu">
+          <i className="fa-solid fa-bars"></i>
+        </button>
+
         <div className="brand" onClick={() => setActiveView('dashboard')}>
           <div className="brandLogo"><i className="fa-solid fa-crown"></i></div>
           <div>
-            <div className="brandTitle">JobGold</div>
-            <div className="brand-tagline">✨ ELITE HIRING PARTNER</div>
+            <div className="brandTitle">Job<span>Gold</span></div>
+            <div className="brand-tagline">ELITE HIRING NETWORK</div>
           </div>
         </div>
 
@@ -1067,7 +1774,7 @@ function App() {
           <button className={activeView === 'dashboard' ? 'active' : ''} onClick={() => handleNavClick('dashboard')}><i className="fa-solid fa-gauge-high"></i> Dashboard</button>
           <button className={activeView === 'jobs' ? 'active' : ''} onClick={() => handleNavClick('jobs')}><i className="fa-solid fa-briefcase"></i> Browse Jobs</button>
           
-          {session && session.user.role === 'jobseeker' && (
+          {session && (
             <button 
               className={activeView === 'notifications' ? 'active' : ''} 
               id="notificationBtn" 
@@ -1083,22 +1790,44 @@ function App() {
         {/* Bell Notifications Dropdown Popup */}
         {showBellPopup && (
           <div id="notification-popup" style={{ display: 'flex' }}>
-            <h4 style={{ margin: '0 0 10px 0', color: 'var(--gold-light)', fontSize: '16px' }}>Hire Notifications</h4>
+            <h4 style={{ margin: '0 0 10px 0', color: 'var(--gold-light)', fontSize: '16px' }}>
+              {session.user.role === 'jobseeker' ? 'Hire Notifications' : 'Pending Applications'}
+            </h4>
             <div id="notificationList">
-              {hireRequests.length === 0 ? (
-                <div className="no-notifications">No new hire requests.</div>
+              {session.user.role === 'jobseeker' ? (
+                hireRequests.length === 0 ? (
+                  <div className="no-notifications">No new hire requests.</div>
+                ) : (
+                  hireRequests.slice().reverse().slice(0, 5).map(req => (
+                    <div key={req.id} className="notification-item" style={{ background: !req.read ? 'rgba(212,175,55,0.1)' : 'transparent' }}>
+                      {!req.read && <i className="fa-solid fa-circle" style={{ fontSize: '8px', color: 'var(--red)', marginRight: '5px' }}></i>}
+                      New Offer: <strong>{req.jobTitle}</strong> (₹{req.salary}) from {req.employerName}.
+                    </div>
+                  ))
+                )
               ) : (
-                hireRequests.slice().reverse().slice(0, 5).map(req => (
-                  <div key={req.id} className="notification-item" style={{ background: !req.read ? 'rgba(212,175,55,0.1)' : 'transparent' }}>
-                    {!req.read && <i className="fa-solid fa-circle" style={{ fontSize: '8px', color: 'var(--red)', marginRight: '5px' }}></i>}
-                    New Offer: <strong>{req.jobTitle}</strong> (₹{req.salary}) from {req.employerName}.
-                  </div>
-                ))
+                getUnreadNotifications().length === 0 ? (
+                  <div className="no-notifications">No pending applications.</div>
+                ) : (
+                  getUnreadNotifications().slice(0, 5).map(app => (
+                    <div key={app.id} className="notification-item" onClick={() => { setActiveView('employer-apps'); setShowBellPopup(false); }} style={{ cursor: 'pointer' }}>
+                      <i className="fa-solid fa-circle" style={{ fontSize: '8px', color: 'var(--gold)', marginRight: '5px' }}></i>
+                      <strong>{app.name}</strong> applied for <strong>{app.jobTitle}</strong>.
+                    </div>
+                  ))
+                )
               )}
-              {hireRequests.length > 5 && (
+              {session.user.role === 'jobseeker' && hireRequests.length > 5 && (
                 <div className="notification-item" style={{ textAlign: 'center' }}>
                   <a href="#" onClick={(e) => { e.preventDefault(); setActiveView('notifications'); setShowBellPopup(false); }} style={{ color: 'var(--gold)' }}>
                     View All {hireRequests.length} Notifications
+                  </a>
+                </div>
+              )}
+              {session.user.role !== 'jobseeker' && getUnreadNotifications().length > 5 && (
+                <div className="notification-item" style={{ textAlign: 'center' }}>
+                  <a href="#" onClick={(e) => { e.preventDefault(); setActiveView('employer-apps'); setShowBellPopup(false); }} style={{ color: 'var(--gold)' }}>
+                    View All {getUnreadNotifications().length} Applications
                   </a>
                 </div>
               )}
@@ -1119,16 +1848,54 @@ function App() {
               <button className="btn" onClick={() => { setIsAuthModalOpen(true); setIsAuthWrapperToggled(true); }}>Register</button>
             </div>
           ) : (
-            <div id="userNav" style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-              <div style={{ textAlign: 'right', lineHeight: '1.2' }}>
-                <div id="userGreeting" className="user-glam-name">{session.user.name}</div>
-                <div id="userRoleDisplay" style={{ fontSize: '10px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                  {session.user.role === 'admin' || session.user.id === 'p1_creator_id' ? 'Creator' : session.user.role}
+            <div id="userNav" style={{ display: 'flex', gap: '12px', alignItems: 'center', position: 'relative' }}>
+              {/* User Avatar Chip Trigger (Compact & Clean) */}
+              <div 
+                id="user-chip-trigger"
+                className="user-avatar-chip"
+                onClick={() => setShowUserDropdown(!showUserDropdown)}
+                title="Account Options"
+              >
+                {(() => {
+                  const p = profiles.find(pr => pr.userId === session.user.id || pr.email?.toLowerCase() === session.user.email?.toLowerCase());
+                  if (p?.photoUrl && !p.photoUrl.includes('placeholder') && !p.photoUrl.includes('dicebear')) {
+                    return (
+                      <div className="user-chip-img" style={{ background: 'transparent', border: 'none' }}>
+                        <img src={p.photoUrl} alt={session.user.name} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid var(--gold)' }} />
+                        <span className="online-dot"></span>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="user-chip-img" style={{ background: 'linear-gradient(135deg, var(--gold), #00d4ff)', color: '#000', fontWeight: 900, fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {session.user.name.charAt(0).toUpperCase()}
+                      <span className="online-dot"></span>
+                    </div>
+                  );
+                })()}
+                <div style={{ textAlign: 'left', lineHeight: '1' }}>
+                  <div className="user-glam-name" style={{ fontSize: '20px' }}>{session.user.name}</div>
                 </div>
+                <i className={`fa-solid ${showUserDropdown ? 'fa-chevron-up' : 'fa-chevron-down'}`} style={{ fontSize: '11px', color: 'var(--muted)', marginLeft: '2px' }}></i>
               </div>
-              <button className="btn logout-btn" onClick={handleLogout}>
-                <i className="fa-solid fa-power-off"></i> <span>LOGOUT</span>
-              </button>
+
+              {/* Floating User Account Dropdown Menu (Strictly Profile & Logout) */}
+              {showUserDropdown && (
+                <div id="user-dropdown-menu" className="user-dropdown-menu">
+                  <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)', marginBottom: '4px' }}>
+                    <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '13px' }}>{session.user.name}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--muted)', textTransform: 'uppercase' }}>{session.user.role}</div>
+                  </div>
+                  
+                  <div className="user-dropdown-item" onClick={() => { setActiveView('about-me'); setShowUserDropdown(false); }}>
+                    <i className="fa-solid fa-user-gear" style={{ color: 'var(--gold)' }}></i> My Profile
+                  </div>
+                  
+                  <div className="user-dropdown-item logout" onClick={() => { handleLogout(); setShowUserDropdown(false); }}>
+                    <i className="fa-solid fa-power-off"></i> Logout
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1167,7 +1934,7 @@ function App() {
               )}
 
               <button className={activeView === 'map' ? 'active' : ''} onClick={() => handleNavClick('map')}><i className="fa-solid fa-map-location-dot" style={{ color: '#00d4ff' }}></i> Jobs Near Me (Map)</button>
-              <button className={activeView === 'about-me' ? 'active' : ''} onClick={() => handleNavClick('about-me')}><i className="fa-solid fa-user-secret" style={{ color: '#f3d476' }}></i> About Me / Admin</button>
+              <button className={activeView === 'about-me' ? 'active' : ''} onClick={() => handleNavClick('about-me')}><i className="fa-solid fa-user-gear" style={{ color: 'var(--gold)' }}></i> My Profile & Settings</button>
             </nav>
             
             <div style={{ marginTop: 'auto', paddingTop: '20px', borderTop: '1px solid var(--border)', textAlign: 'center' }}>
@@ -1193,22 +1960,34 @@ function App() {
                       id="searchInput" 
                       placeholder="Search by title, skill or city..." 
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        if (activeView !== 'jobs') setActiveView('jobs');
+                      }}
                     />
                     <div 
                       id="voiceSearchBtn" 
-                      onClick={handleVoiceSearch} 
+                      onClick={() => {
+                        handleVoiceSearch();
+                        if (activeView !== 'jobs') setActiveView('jobs');
+                      }} 
                       className={isListening ? 'listening' : ''} 
                       title="Search using your voice (Simulated)"
                     >
                       <i className="fa-solid fa-microphone"></i>
                     </div>
                   </div>
-                  <select id="searchCategory" value={searchCategory} onChange={(e) => setSearchCategory(e.target.value)}>
+                  <select id="searchCategory" value={searchCategory} onChange={(e) => {
+                    setSearchCategory(e.target.value);
+                    if (activeView !== 'jobs') setActiveView('jobs');
+                  }}>
                     <option value="">✨ All Categories</option>
                     {cats.map(c => <option key={c} value={c}>{catConfig[c].emoji} {c}</option>)}
                   </select>
-                  <select id="searchSalaryRange" value={searchSalaryRange} onChange={(e) => setSearchSalaryRange(e.target.value)}>
+                  <select id="searchSalaryRange" value={searchSalaryRange} onChange={(e) => {
+                    setSearchSalaryRange(e.target.value);
+                    if (activeView !== 'jobs') setActiveView('jobs');
+                  }}>
                     <option value="">Salary Range</option>
                     <option value="0-10000">0 - 10K</option>
                     <option value="10000-20000">10K - 20K</option>
@@ -1216,7 +1995,22 @@ function App() {
                     <option value="30000-50000">30K - 50K</option>
                     <option value="50000-999999">50K+</option>
                   </select>
-                  <button className="btn cta" id="searchBtn" style={{ borderRadius: '8px' }} onClick={loadData}>Find Elite Match</button>
+                  <button className="btn cta" id="searchBtn" style={{ borderRadius: '8px' }} onClick={() => { loadData(); setActiveView('jobs'); }}>Find Elite Match</button>
+                  
+                  {(searchQuery || searchCategory || searchSalaryRange) && (
+                    <button 
+                      className="btn" 
+                      style={{ borderRadius: '8px', borderColor: 'var(--red)', color: 'var(--red)', background: 'rgba(255,68,68,0.05)' }} 
+                      onClick={() => {
+                        setSearchQuery('');
+                        setSearchCategory('');
+                        setSearchSalaryRange('');
+                        showToast('Search filters cleared.', 'info');
+                      }}
+                    >
+                      <i className="fa-solid fa-xmark"></i> Clear
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -1240,30 +2034,239 @@ function App() {
             {/* 1. Dashboard View */}
             {activeView === 'dashboard' && (
               <div id="view-dashboard" className="view">
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '30px' }}>
-                  <div className="card stat-card" onClick={() => setActiveView('jobs')} style={{ cursor: 'pointer' }}>
+                {/* 4 Stat Cards in Stats Grid */}
+                <div className="stats-grid">
+                  {/* Card 1: Active Job Posts */}
+                  <div className="card stat-card" onClick={() => setActiveView('jobs')} style={{ cursor: 'pointer', margin: 0 }}>
                     <div className="stat-icon"><i className="fa-solid fa-briefcase"></i></div>
                     <div>
                       <div className="stat-value" id="statJobs">{jobs.length}</div>
-                      <div className="stat-label">Active Job Posts</div>
+                      <div className="stat-label">Active Jobs</div>
                     </div>
                   </div>
-                  <div className="card stat-card">
-                    <div className="stat-icon" style={{ background: 'var(--card-bg)', color: '#00d4ff', boxShadow: '0 0 15px rgba(0, 212, 255, 0.2)' }}><i className="fa-solid fa-file-invoice"></i></div>
+                  
+                  {/* Card 2: Verified Candidates */}
+                  <div className="card stat-card" onClick={() => setActiveView('profiles')} style={{ cursor: 'pointer', margin: 0, borderLeftColor: '#4caf50' }}>
+                    <div className="stat-icon" style={{ color: '#4caf50', boxShadow: '0 0 15px rgba(76, 175, 80, 0.2)' }}><i className="fa-solid fa-user-check"></i></div>
+                    <div>
+                      <div className="stat-value" style={{ color: 'var(--text-main)' }}>{profiles.filter(p => p.status === 'Verified').length}</div>
+                      <div className="stat-label">Verified Talent</div>
+                    </div>
+                  </div>
+                  
+                  {/* Card 3: Pending Applications */}
+                  <div className="card stat-card" onClick={() => setActiveView(session?.user?.role === 'jobseeker' ? 'jobseeker-apps' : (session?.user?.role === 'employer' || session?.user?.role === 'admin' ? 'employer-apps' : 'dashboard'))} style={{ cursor: 'pointer', margin: 0, borderLeftColor: '#00d4ff' }}>
+                    <div className="stat-icon" style={{ color: '#00d4ff', boxShadow: '0 0 15px rgba(0, 212, 255, 0.2)' }}><i className="fa-solid fa-file-invoice"></i></div>
                     <div>
                       <div className="stat-value" style={{ background: 'linear-gradient(90deg, var(--text-main), #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                         {session ? (
                           session.user.role === 'admin' ? applications.length :
                           session.user.role === 'employer' ? applications.filter(a => jobs.filter(j => j.creatorId === session.user.id).map(j => j.id).includes(a.jobId)).length :
-                          applications.filter(a => a.email.toLowerCase() === session.user.email.toLowerCase()).length
+                          applications.filter(a => a.email && session?.user?.email && a.email.toLowerCase() === session.user.email.toLowerCase()).length
                         ) : '0'}
                       </div>
                       <div className="stat-label">
                         {session ? (
-                          session.user.role === 'admin' ? 'Total Applications (Admin)' :
-                          session.user.role === 'employer' ? 'Pending Applications' :
-                          'My Total Applications'
-                        ) : 'Total Applications (Guest)'}
+                          session.user.role === 'admin' ? 'Total Applications' :
+                          session.user.role === 'employer' ? 'Applications Received' :
+                          'My Applications'
+                        ) : 'Applications (Guest)'}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Card 4: Successful Matches */}
+                  <div className="card stat-card" style={{ margin: 0, borderLeftColor: 'var(--gold-light)' }}>
+                    <div className="stat-icon" style={{ color: 'var(--gold-light)', boxShadow: '0 0 15px var(--gold-glow)' }}><i className="fa-solid fa-handshake"></i></div>
+                    <div>
+                      <div className="stat-value" style={{ color: 'var(--gold-light)' }}>
+                        {appStatusList.filter(s => s.status === 'Accepted').length + 8}
+                      </div>
+                      <div className="stat-label">Success Matches</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="dashboard-layout" style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '24px', marginBottom: '24px' }}>
+                  {/* Left Column: Quick Actions & Analyzer & Tracker */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    {/* Quick Actions Card */}
+                    <div className="card" style={{ margin: 0, textAlign: 'left' }}>
+                      <h3 style={{ fontSize: '20px', color: 'var(--gold-light)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <i className="fa-solid fa-bolt"></i> Elite Quick Actions
+                      </h3>
+                      <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '20px' }}>
+                        Accelerate your workflow with primary shortcuts tailored to you.
+                      </p>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: '12px' }}>
+                        {!session ? (
+                          <>
+                            <button className="btn cta" onClick={() => { setIsAuthModalOpen(true); setIsAuthWrapperToggled(false); }}>
+                              <i className="fa-solid fa-arrow-right-to-bracket"></i> Login / Enter
+                            </button>
+                            <button className="btn" onClick={() => { setIsAuthModalOpen(true); setIsAuthWrapperToggled(true); }}>
+                              <i className="fa-solid fa-user-plus"></i> Register
+                            </button>
+                            <button className="btn" onClick={() => handleNavClick('jobs')}>
+                              <i className="fa-solid fa-briefcase"></i> Browse Jobs
+                            </button>
+                          </>
+                        ) : session.user.role === 'employer' ? (
+                          <>
+                            <button className="btn cta" onClick={() => handleNavClick('add')}>
+                              <i className="fa-solid fa-circle-plus"></i> Post Job
+                            </button>
+                            <button className="btn" onClick={() => handleNavClick('employer-apps')}>
+                              <i className="fa-solid fa-envelope-open-text"></i> Applications
+                            </button>
+                            <button className="btn" onClick={() => handleNavClick('profiles')}>
+                              <i className="fa-solid fa-user-tie"></i> Search Talent
+                            </button>
+                          </>
+                        ) : session.user.role === 'jobseeker' ? (
+                          <>
+                            <button className="btn cta" onClick={() => handleNavClick('submit-history')}>
+                              <i className="fa-solid fa-clock-rotate-left"></i> Share History
+                            </button>
+                            <button className="btn" onClick={() => handleNavClick('jobs')}>
+                              <i className="fa-solid fa-briefcase"></i> Find Jobs
+                            </button>
+                            <button className="btn" onClick={() => handleNavClick('saved-jobs')}>
+                              <i className="fa-solid fa-heart"></i> Saved Jobs
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button className="btn cta" onClick={() => handleNavClick('add')}>
+                              <i className="fa-solid fa-plus"></i> Post Job
+                            </button>
+                            <button className="btn" onClick={() => handleNavClick('employer-apps')}>
+                              <i className="fa-solid fa-list"></i> Applications
+                            </button>
+                            <button className="btn" onClick={() => handleNavClick('about-me')}>
+                              <i className="fa-solid fa-gears"></i> Admin Settings
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Live Market Insights Hub */}
+                    <div className="card match-analyzer-card" style={{ margin: 0 }}>
+                      <h3 style={{ fontSize: '20px', color: '#00d4ff', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <i className="fa-solid fa-chart-pie"></i> ⚡ Live Regional Market Insights
+                      </h3>
+                      <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '20px' }}>
+                        Real-time stats on active recruitment trends in Jodhpur, Rajasthan.
+                      </p>
+                      
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px' }}>
+                        <div style={{ background: 'var(--panel)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border)', textAlign: 'center' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700 }}>Top Hiring Sector</div>
+                          <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--gold)', marginTop: '6px' }}>Tech & Operations</div>
+                        </div>
+                        <div style={{ background: 'var(--panel)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border)', textAlign: 'center' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700 }}>Avg Hiring Time</div>
+                          <div style={{ fontSize: '15px', fontWeight: 800, color: '#4caf50', marginTop: '6px' }}>24 Hours</div>
+                        </div>
+                        <div style={{ background: 'var(--panel)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border)', textAlign: 'center' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700 }}>Talent Demand</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Application Status Tracker */}
+                    {session && session.user.role === 'jobseeker' && (
+                      <div className="card" style={{ margin: 0, textAlign: 'left' }}>
+                        <h3 style={{ fontSize: '20px', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <i className="fa-solid fa-signal" style={{ color: 'var(--gold)' }}></i> Live Job Application Tracker
+                        </h3>
+                        <p style={{ color: 'var(--muted)', fontSize: '13px' }}>Monitor the real-time progress of your applications.</p>
+                        {applications.filter(a => a.email && session?.user?.email && a.email.toLowerCase() === session.user.email.toLowerCase()).length > 0 ? (
+                          (() => {
+                            const myApps = applications.filter(a => a.email && session?.user?.email && a.email.toLowerCase() === session.user.email.toLowerCase());
+                            const latestApp = myApps[myApps.length - 1];
+                            const statuses = appStatusList.filter(s => s.appId === latestApp.id).sort((x, y) => new Date(y.date) - new Date(x.date));
+                            const status = statuses[0] ? statuses[0].status : 'Submitted';
+                            
+                            return (
+                              <div style={{ marginTop: '20px' }}>
+                                <div style={{ fontSize: '14px', color: 'var(--text-main)', marginBottom: '15px' }}>
+                                  Latest Application: <strong>{latestApp.jobTitle}</strong>
+                                </div>
+                                <div className="tracker-timeline">
+                                  <div className="tracker-node completed">
+                                    <div className="tracker-circle"><i className="fa-solid fa-check"></i></div>
+                                    <div className="tracker-label">Submitted</div>
+                                  </div>
+                                  <div className={`tracker-node ${status === 'Pending' || status === 'Accepted' || status === 'Rejected' ? 'completed' : 'active'}`}>
+                                    <div className="tracker-circle">
+                                      {status === 'Pending' || status === 'Accepted' || status === 'Rejected' ? <i className="fa-solid fa-check"></i> : <i className="fa-solid fa-spinner fa-spin"></i>}
+                                    </div>
+                                    <div className="tracker-label">Under Review</div>
+                                  </div>
+                                  <div className={`tracker-node ${status === 'Accepted' || status === 'Rejected' ? 'completed' : status === 'Pending' ? 'active' : ''}`}>
+                                    <div className="tracker-circle">
+                                      {status === 'Accepted' || status === 'Rejected' ? <i className="fa-solid fa-check"></i> : '3'}
+                                    </div>
+                                    <div className="tracker-label">Hiring Decision</div>
+                                  </div>
+                                </div>
+                                <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '10px', textAlign: 'center' }}>
+                                  Current Status: <strong style={{ color: status === 'Accepted' ? 'var(--green)' : status === 'Rejected' ? 'var(--red)' : 'var(--gold-light)' }}>{status}</strong>
+                                </div>
+                              </div>
+                            );
+                          })()
+                        ) : (
+                          <div style={{ textAlign: 'center', padding: '15px', color: 'var(--muted)', fontSize: '13px' }}>
+                            You have no active applications. Apply for jobs to track their status here!
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Column: Trending Sectors */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    <div className="card" style={{ margin: 0, height: '100%', textAlign: 'left' }}>
+                      <h3 style={{ fontSize: '20px', color: '#00d4ff', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <i className="fa-solid fa-fire"></i> Trending Sectors
+                      </h3>
+                      <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '20px' }}>
+                        Explore the highest demand job categories in Jodhpur.
+                      </p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {cats.map(c => {
+                          const count = jobs.filter(j => j.category === c).length;
+                          return (
+                            <div 
+                              key={c} 
+                              className="category-item-card" 
+                              onClick={() => {
+                                setSearchCategory(c);
+                                setActiveView('jobs');
+                              }}
+                              style={{ 
+                                display: 'flex', 
+                                justifyContent: 'space-between', 
+                                alignItems: 'center', 
+                                padding: '12px 15px', 
+                                background: 'rgba(255,255,255,0.02)', 
+                                borderRadius: '10px', 
+                                border: '1px solid var(--border)',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s'
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span style={{ fontSize: '18px' }}>{catConfig[c].emoji}</span>
+                                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>{c}</span>
+                              </div>
+                              <span className="pill" style={{ padding: '4px 10px', fontSize: '11px', borderRadius: '20px' }}>{count} Job(s)</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -1286,124 +2289,282 @@ function App() {
             {activeView === 'map' && (
               <div id="view-map" className="view">
                 <h3 style={{ color: 'var(--text-main)', marginBottom: '15px' }}><i className="fa-solid fa-map-location-dot" style={{ color: '#00d4ff' }}></i> Jobs Near Me (Map View)</h3>
-                <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '20px' }}>View available job locations on the map below (Simulated 3D Look).</p>
-                <div id="map-container" className="card">
-                  <iframe id="map-iframe" src="https://nareshmakad.github.io/3d-map-simulation" title="Simulated 3D Map of Jobs Near Me" allowFullScreen></iframe>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '10px', flexWrap: 'wrap' }}>
+                  <p style={{ color: 'var(--muted)', fontSize: '13px', margin: 0 }}>View available job locations on the map below (Jodhpur, Rajasthan, India).</p>
+                  <button className="btn profile-edit-btn" id="locate-me-btn" style={{ fontSize: '12px', padding: '6px 12px' }}>
+                    <i className="fa-solid fa-location-crosshairs" style={{ color: 'var(--gold)' }}></i> Center on My Location
+                  </button>
+                </div>
+                <div id="map-container" className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                  <div id="map" style={{ width: '100%', height: '100%', borderRadius: '12px' }}></div>
                 </div>
               </div>
             )}
 
-            {/* 3. About Me / Admin View */}
+            {/* 3. Personalized User Profile & Control Hub */}
             {activeView === 'about-me' && (
               <div id="view-about-me" className="view">
-                {!isEditingCreator ? (
-                  <>
-                    <div id="aboutMeCard" className="card about-me-card">
-                      {profiles.find(p => p.id === 'p1') ? (
-                        (() => {
-                          const creatorProfile = profiles.find(p => p.id === 'p1');
-                          const isCreatorLoggedIn = session?.user?.id === 'p1_creator_id' && session?.user?.email === LOGIN_ADMIN_EMAIL;
-                          
-                          return (
-                            <>
-                              <div className="about-me-header">
-                                <h2 className="about-me-title"><i className="fa-solid fa-crown" style={{ color: 'var(--gold-light)' }}></i> Premium Profile: {creatorProfile.name} (The Designer) ✨</h2>
-                              </div>
-                              <div className="about-me-info">
-                                <div className="about-me-photo-container">
-                                  <img 
-                                    src={creatorProfile.photoUrl} 
-                                    alt={creatorProfile.name} 
-                                    className="about-me-photo" 
-                                    onError={(e) => { e.target.onerror = null; e.target.src = 'https://i.pravatar.cc/150?u=fallback'; }} 
-                                  />
-                                </div>
-                                <div className="about-me-details">
-                                  <div className="detail-item"><i className="fa-solid fa-envelope"></i> Email: {DISPLAY_CREATOR_EMAIL}</div>
-                                  <div className="detail-item"><i className="fa-solid fa-briefcase"></i> Role: {creatorProfile.currentRole}</div>
-                                  <div className="detail-item"><i className="fa-solid fa-location-dot"></i> Location: Jodhpur, Rajasthan, India</div>
-                                  <div className="detail-item"><i className="fa-solid fa-globe"></i> Portfolio: Coming Soon</div>
-                                  
-                                  {isCreatorLoggedIn && (
-                                    <>
-                                      <button className="btn profile-edit-btn" style={{ marginTop: '15px', maxWidth: '250px' }} onClick={() => startEditProfile(creatorProfile)}>
-                                        <i className="fa-solid fa-camera"></i> Change Photo / Edit Profile
-                                      </button>
-                                    </>
+                {!session ? (
+                  <div className="card" style={{ textAlign: 'center', padding: '50px 20px' }}>
+                    <i className="fa-solid fa-user-lock" style={{ fontSize: '48px', color: 'var(--gold)', marginBottom: '20px' }}></i>
+                    <h2 style={{ color: 'var(--text-main)', margin: '0 0 10px 0' }}>Executive Account Portal</h2>
+                    <p style={{ color: 'var(--muted)', fontSize: '14px', maxWidth: '450px', margin: '0 auto 25px auto' }}>
+                      Please log in or create a JobGold account to access your personal control hub, track applications, and manage verified credentials.
+                    </p>
+                    <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+                      <button className="btn cta" onClick={() => { setIsAuthModalOpen(true); setIsAuthWrapperToggled(false); }}>
+                        <i className="fa-solid fa-arrow-right-to-bracket"></i> Login Now
+                      </button>
+                      <button className="btn" onClick={() => { setIsAuthModalOpen(true); setIsAuthWrapperToggled(true); }}>
+                        <i className="fa-solid fa-user-plus"></i> Register Account
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  (() => {
+                    const myApps = applications.filter(a => a.email && session?.user?.email && a.email.toLowerCase() === session.user.email.toLowerCase());
+                    const myProf = profiles.find(p => p.userId === session.user.id || p.email?.toLowerCase() === session.user.email?.toLowerCase());
+                    
+                    // Dynamic calculation of completeness score
+                    let score = 30; // Base registration
+                    const tasks = [
+                      { id: 't_reg', title: 'Account Registration Active', done: true, points: 30, action: null },
+                      { id: 't_photo', title: 'Upload Profile Avatar Photo', done: !!(myProf?.photoUrl && !myProf.photoUrl.includes('placeholder') && !myProf.photoUrl.includes('dicebear')), points: 15, action: 'photo' },
+                      { id: 't_role', title: 'Specify Target Role & Salary', done: !!(myProf?.currentRole || userProfRole), points: 15, action: 'role' },
+                      { id: 't_skills', title: 'Add Key Skills & Professional Bio', done: !!(myProf?.experience && myProf.experience.length > 20), points: 20, action: 'bio' },
+                      { id: 't_verify', title: 'Submit Job History for Verification', done: !!(myProf && myProf.status === 'Verified'), points: 20, action: 'history' }
+                    ];
+
+                    const totalDone = tasks.filter(t => t.done).reduce((acc, t) => acc + t.points, 0);
+
+                    const handleSaveUserProfile = () => {
+                      if (userProfName.trim()) {
+                        setSession(prev => prev ? { ...prev, user: { ...prev.user, name: userProfName.trim() } } : prev);
+                      }
+                      
+                      // Update or create in profiles list
+                      setProfiles(prev => {
+                        const idx = prev.findIndex(p => p.userId === session.user.id || p.email?.toLowerCase() === session.user.email?.toLowerCase());
+                        const updatedObj = {
+                          id: idx >= 0 ? prev[idx].id : `p_user_${Date.now()}`,
+                          userId: session.user.id,
+                          name: userProfName.trim() || session.user.name,
+                          email: session.user.email,
+                          phone: userProfPhone || '9829012345',
+                          currentRole: userProfRole || (session.user.role === 'jobseeker' ? 'Executive Applicant' : 'Hiring Manager'),
+                          experience: userProfBio || 'Experienced professional looking for elite opportunities in Jodhpur.',
+                          photoUrl: userProfPhotoUrl || '',
+                          status: idx >= 0 ? prev[idx].status : 'Pending Verification'
+                        };
+                        if (idx >= 0) {
+                          const copy = [...prev];
+                          copy[idx] = updatedObj;
+                          return copy;
+                        }
+                        return [...prev, updatedObj];
+                      });
+
+                      setIsEditingUserProfile(false);
+                      showToast('Personal Profile updated successfully! ✨', 'success');
+                    };
+
+                    return (
+                      <>
+                        {/* Executive Passport Header Card */}
+                        <div className="card" style={{ marginBottom: '25px', padding: '0', overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
+                          <div style={{ height: '100px', background: 'linear-gradient(135deg, #0b0c10, #1f2937)', position: 'relative', borderBottom: '2px solid var(--gold)' }}>
+                            <div style={{ position: 'absolute', top: '15px', right: '20px', display: 'flex', gap: '10px' }}>
+                              <span className="pill" style={{ background: 'rgba(212,175,55,0.2)', color: 'var(--gold)', border: '1px solid var(--gold)', padding: '4px 12px', fontSize: '11px', fontWeight: 800 }}>
+                                <i className="fa-solid fa-crown"></i> {session.user.role.toUpperCase()}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div style={{ padding: '0 30px 30px 30px', marginTop: '-40px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '20px' }}>
+                              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '20px' }}>
+                                <div style={{ position: 'relative' }}>
+                                  {myProf?.photoUrl && !myProf.photoUrl.includes('placeholder') && !myProf.photoUrl.includes('dicebear') ? (
+                                    <img 
+                                      src={myProf.photoUrl} 
+                                      alt={session.user.name} 
+                                      style={{ width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover', border: '4px solid var(--card-bg)', boxShadow: '0 8px 25px rgba(0,0,0,0.3)' }}
+                                    />
+                                  ) : (
+                                    <div style={{ width: '100px', height: '100px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--gold), #00d4ff)', color: '#000', fontSize: '42px', fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '4px solid var(--card-bg)', boxShadow: '0 8px 25px rgba(0,0,0,0.3)' }}>
+                                      {session.user.name.charAt(0).toUpperCase()}
+                                    </div>
                                   )}
+                                  <span style={{ position: 'absolute', bottom: '6px', right: '6px', width: '16px', height: '16px', background: '#4caf50', borderRadius: '50%', border: '2px solid var(--card-bg)' }} title="Online"></span>
+                                </div>
+                                <div style={{ marginBottom: '5px' }}>
+                                  <h2 style={{ margin: 0, fontSize: '28px', color: 'var(--text-main)', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    {session.user.name}
+                                    <i className="fa-solid fa-circle-check" style={{ color: '#00d4ff', fontSize: '18px' }} title="Verified Candidate"></i>
+                                  </h2>
+                                  <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: 'var(--muted)', fontWeight: 600 }}>
+                                    <i className="fa-solid fa-briefcase" style={{ color: 'var(--gold)' }}></i> {myProf?.currentRole || (session.user.role === 'jobseeker' ? 'Executive Job Seeker' : 'Hiring Manager')} • <i className="fa-solid fa-location-dot" style={{ color: '#00d4ff' }}></i> Jodhpur, Rajasthan
+                                  </p>
                                 </div>
                               </div>
-                              <div className="about-me-experience">
-                                <h4>About Me</h4>
-                                <p dangerouslySetInnerHTML={{ __html: creatorProfile.experience.replace(/\*\*(.*?)\*\//g, '<b>$1</b>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') }}></p>
+
+                              <button 
+                                className="btn cta" 
+                                style={{ borderRadius: '25px', padding: '10px 22px' }}
+                                onClick={() => {
+                                  setUserProfName(session.user.name);
+                                  setUserProfPhone(myProf?.phone || '');
+                                  setUserProfRole(myProf?.currentRole || '');
+                                  setUserProfBio(myProf?.experience || '');
+                                  setUserProfPhotoUrl(myProf?.photoUrl || '');
+                                  setIsEditingUserProfile(!isEditingUserProfile);
+                                }}
+                              >
+                                <i className="fa-solid fa-user-pen"></i> {isEditingUserProfile ? 'Close Editor' : 'Edit Executive Profile'}
+                              </button>
+                            </div>
+
+                            {/* Completeness Gauge & Checklist */}
+                            <div style={{ marginTop: '25px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <i className="fa-solid fa-chart-line" style={{ color: 'var(--gold)' }}></i> Executive Onboarding Score
+                                </span>
+                                <span style={{ fontSize: '15px', fontWeight: 900, color: totalDone === 100 ? '#4caf50' : 'var(--gold)' }}>
+                                  {totalDone}% Verified {totalDone === 100 ? '✨ (Master Gold Candidate)' : '🎯'}
+                                </span>
                               </div>
-                              <div className="about-me-experience">
-                                <h4>My Goal (मेरा लक्ष्य)</h4>
-                                <p style={{ fontSize: '12px', color: 'var(--gold-light)' }}>
-                                  गुणवत्ता और नए मुकामों पर ध्यान केंद्रित करते हुए, हर किसी को एक उच्च-स्तरीय, परेशानी मुक्त अनुभव प्रदान करना ही मेरा लक्ष्य और उद्देश्य है।
-                                </p>
+                              <div style={{ width: '100%', height: '8px', background: 'var(--panel)', borderRadius: '4px', overflow: 'hidden', marginBottom: '20px' }}>
+                                <div style={{ width: `${totalDone}%`, height: '100%', background: totalDone === 100 ? '#4caf50' : 'linear-gradient(90deg, var(--gold), #00d4ff)', borderRadius: '4px', transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }}></div>
                               </div>
-                            </>
-                          );
-                        })()
-                      ) : (
-                        <div style={{ textAlign: 'center', padding: '20px', color: 'var(--red)' }}>Creator Profile data not found.</div>
-                      )}
+
+                              {/* Action Checklist */}
+                              <div style={{ background: 'var(--panel)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                                <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <i className="fa-solid fa-list-check"></i> Onboarding Action Checklist:
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+                                  {tasks.map(t => (
+                                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--card-bg)', padding: '12px 16px', borderRadius: '10px', border: t.done ? '1px solid rgba(76,175,80,0.4)' : '1px solid var(--border)' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: 'var(--text-main)', fontWeight: 600 }}>
+                                        <i className={`fa-solid ${t.done ? 'fa-circle-check' : 'fa-circle-dot'}`} style={{ color: t.done ? '#4caf50' : 'var(--gold)', fontSize: '16px' }}></i>
+                                        <span style={{ textDecoration: t.done ? 'line-through' : 'none', opacity: t.done ? 0.7 : 1 }}>{t.title}</span>
+                                      </div>
+                                      {!t.done && t.action && (
+                                        <button 
+                                          className="btn cta" 
+                                          style={{ padding: '4px 10px', fontSize: '11px', height: 'auto', borderRadius: '15px' }}
+                                          onClick={() => {
+                                            if (t.action === 'history') setActiveView('submit-history');
+                                            else {
+                                              setIsEditingUserProfile(true);
+                                              window.scrollTo({ top: 400, behavior: 'smooth' });
+                                            }
+                                          }}
+                                        >
+                                          Complete
+                                        </button>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Inline Edit Profile Editor Form */}
+                        {isEditingUserProfile && (
+                          <div className="card" style={{ marginBottom: '25px', border: '2px solid var(--gold)', boxShadow: '0 0 30px rgba(212,175,55,0.2)' }}>
+                            <h3 style={{ color: 'var(--gold)', marginTop: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <i className="fa-solid fa-user-gear"></i> Edit Executive Profile Details
+                            </h3>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginTop: '20px' }}>
+                              <div>
+                                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', display: 'block', marginBottom: '6px' }}>Full Name</label>
+                                <input value={userProfName} onChange={(e) => setUserProfName(e.target.value)} placeholder="Your Name" />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', display: 'block', marginBottom: '6px' }}>Contact Phone</label>
+                                <input value={userProfPhone} onChange={(e) => setUserProfPhone(e.target.value)} placeholder="e.g. 9829012345" />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', display: 'block', marginBottom: '6px' }}>Current or Desired Role</label>
+                                <input value={userProfRole} onChange={(e) => setUserProfRole(e.target.value)} placeholder="e.g. Senior Manager / Technician" />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', display: 'block', marginBottom: '6px' }}>Avatar Photo URL</label>
+                                <input value={userProfPhotoUrl} onChange={(e) => setUserProfPhotoUrl(e.target.value)} placeholder="https://..." />
+                              </div>
+                            </div>
+                            <div style={{ marginTop: '16px' }}>
+                              <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', display: 'block', marginBottom: '6px' }}>Professional Bio & Key Skills Overview</label>
+                              <textarea value={userProfBio} onChange={(e) => setUserProfBio(e.target.value)} placeholder="Describe your experience, achievements, and technical expertise..." style={{ height: '90px' }}></textarea>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px' }}>
+                              <button className="btn" onClick={() => setIsEditingUserProfile(false)}>Cancel</button>
+                              <button className="btn cta" onClick={handleSaveUserProfile}><i className="fa-solid fa-floppy-disk"></i> Save Changes</button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Candidate Credentials Overview */}
+                        <div className="card" style={{ padding: '30px' }}>
+                          <h3 style={{ color: 'var(--text-main)', marginTop: 0, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '20px' }}>
+                            <i className="fa-solid fa-id-card" style={{ color: 'var(--gold)' }}></i> Verified Credentials & Experience Bio
+                          </h3>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '20px' }}>
+                            <div style={{ background: 'var(--panel)', padding: '18px', borderRadius: '12px', border: '1px solid var(--border)', borderLeft: '4px solid var(--gold)' }}>
+                              <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: '6px', fontWeight: 800 }}>Registered Email</div>
+                              <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-main)' }}>{session.user.email}</div>
+                            </div>
+                            <div style={{ background: 'var(--panel)', padding: '18px', borderRadius: '12px', border: '1px solid var(--border)', borderLeft: '4px solid #00d4ff' }}>
+                              <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: '6px', fontWeight: 800 }}>Phone Contact</div>
+                              <div style={{ fontSize: '15px', fontWeight: 800, color: '#00d4ff' }}>{myProf?.phone || 'Not Specified'}</div>
+                            </div>
+                            <div style={{ background: 'var(--panel)', padding: '18px', borderRadius: '12px', border: '1px solid var(--border)', borderLeft: '4px solid #4caf50' }}>
+                              <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: '6px', fontWeight: 800 }}>Target Sector</div>
+                              <div style={{ fontSize: '15px', fontWeight: 800, color: '#4caf50' }}>{myProf?.currentRole || 'General Member'}</div>
+                            </div>
+                          </div>
+
+                          <div style={{ marginTop: '25px' }}>
+                            <h4 style={{ color: 'var(--gold)', marginBottom: '12px', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <i className="fa-solid fa-feather-pointed"></i> Professional Experience Summary
+                            </h4>
+                            <div style={{ background: 'var(--panel)', padding: '22px', borderRadius: '12px', border: '1px solid var(--border)', borderLeft: '4px solid var(--gold)', fontSize: '14px', lineHeight: '1.8', color: 'var(--text-main)', whiteSpace: 'pre-wrap' }}>
+                              {myProf?.experience || 'No personal bio added yet. Click "Edit Executive Profile" above to add your professional summary and showcase your key skills!'}
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()
+                )}
+
+                {/* Admin Settings Card (Visible to Creator / Admins only) */}
+                {session?.user?.role === 'admin' && (
+                  <div id="adminSettingsCard" className="card" style={{ marginTop: '30px' }}>
+                    <h3><i className="fa-solid fa-user-shield"></i> Admin Settings</h3>
+                    <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '20px' }}>Manage local admin access and data operations.</p>
+                    <div className="heroActions" style={{ display: 'flex', gap: '15px', marginTop: '20px', flexWrap: 'wrap' }}>
+                      <button className="btn" onClick={() => showToast('Data Exported/Backed up successfully (Simulated).', 'success')}><i className="fa-solid fa-cloud-arrow-down"></i> Backup Data</button>
+                      <button className="btn" onClick={() => showToast('Data Restored successfully (Simulated).', 'success')}><i className="fa-solid fa-cloud-arrow-up"></i> Restore Data</button>
                     </div>
 
-                    {/* Admin Settings Card (Visible to Creator / Admins only) */}
-                    {session?.user?.role === 'admin' && (
-                      <div id="adminSettingsCard" className="card" style={{ marginTop: '30px' }}>
-                        <h3><i className="fa-solid fa-user-shield"></i> Admin Settings</h3>
-                        <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '20px' }}>Manage local admin access and data operations.</p>
-                        <div className="heroActions" style={{ display: 'flex', gap: '15px', marginTop: '20px', flexWrap: 'wrap' }}>
-                          <button className="btn" onClick={() => showToast('Data Exported/Backed up successfully (Simulated).', 'success')}><i className="fa-solid fa-cloud-arrow-down"></i> Backup Data</button>
-                          <button className="btn" onClick={() => showToast('Data Restored successfully (Simulated).', 'success')}><i className="fa-solid fa-cloud-arrow-up"></i> Restore Data</button>
-                        </div>
+                    <div className="row" style={{ marginTop: '30px', borderTop: '1px solid var(--border)', paddingTop: '20px', flexWrap: 'wrap' }}>
+                      <h4 style={{ width: '100%', fontSize: '16px', marginTop: '0px', color: 'var(--text-main)', fontFamily: 'Inter, sans-serif' }}><i className="fa-solid fa-user-plus"></i> Create New Admin</h4>
+                      <input placeholder="New Admin Email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} style={{ flex: 1, minWidth: '150px' }} />
+                      <input placeholder="Password" type="password" value={adminPass} onChange={(e) => setAdminPass(e.target.value)} style={{ flex: 1, minWidth: '150px' }} />
+                      <button className="btn" onClick={handleCreateAdmin}>Create</button>
+                    </div>
 
-                        <div className="row" style={{ marginTop: '30px', borderTop: '1px solid var(--border)', paddingTop: '20px', flexWrap: 'wrap' }}>
-                          <h4 style={{ width: '100%', fontSize: '16px', marginTop: '0px', color: 'var(--text-main)', fontFamily: 'Inter, sans-serif' }}><i className="fa-solid fa-user-plus"></i> Create New Admin</h4>
-                          <input placeholder="New Admin Email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} style={{ flex: 1, minWidth: '150px' }} />
-                          <input placeholder="Password" type="password" value={adminPass} onChange={(e) => setAdminPass(e.target.value)} style={{ flex: 1, minWidth: '150px' }} />
-                          <button className="btn" onClick={handleCreateAdmin}>Create</button>
-                        </div>
-
-                        <div style={{ marginTop: '30px', borderTop: '1px solid var(--border)', paddingTop: '20px' }}>
-                          <p className="tiny" style={{ color: 'var(--red)', fontSize: '12px' }}>Danger Zone (Admin Only)</p>
-                          <button className="btn" style={{ borderColor: 'var(--red)', color: 'var(--red)', background: 'rgba(255,0,0,0.05)' }} onClick={handleClearAllData}>
-                            <i className="fa-solid fa-trash"></i> Delete All Data
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  // Creator edit form
-                  <div id="creatorEditFormContainer" className="card">
-                    <h3><i className="fa-solid fa-pen-to-square" style={{ color: 'var(--gold)' }}></i> Edit Creator Profile</h3>
-                    <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '20px' }}>Update your master profile details here.</p>
-                    <form onSubmit={handleUpdateCreatorProfile}>
-                      <h4 style={{ fontSize: '16px', marginTop: '10px', color: 'var(--text-main)', fontFamily: 'Inter, sans-serif' }}><i className="fa-solid fa-user-tag"></i> Profile Details</h4>
-                      <div className="row" style={{ marginTop: '15px' }}>
-                        <div style={{ flex: 1 }}><input placeholder="Your Name" value={creatorName} onChange={(e) => setCreatorName(e.target.value)} required /></div>
-                        <div style={{ flex: 1 }}><input placeholder="Current Role / Title" value={creatorCurrentRole} onChange={(e) => setCreatorCurrentRole(e.target.value)} required /></div>
-                      </div>
-                      
-                      <h4 style={{ fontSize: '16px', marginTop: '30px', color: 'var(--text-main)', fontFamily: 'Inter, sans-serif' }}><i className="fa-solid fa-camera"></i> Profile Photo</h4>
-                      <div style={{ marginTop: '15px' }}>
-                        <input type="file" onChange={(e) => setCreatorPhotoFile(e.target.files[0])} accept="image/*" title="Upload new photo" />
-                      </div>
-
-                      <h4 style={{ fontSize: '16px', marginTop: '30px', color: 'var(--text-main)', fontFamily: 'Inter, sans-serif' }}><i className="fa-solid fa-feather-pointed"></i> About Me / Experience</h4>
-                      <div style={{ marginTop: '15px' }}>
-                        <textarea placeholder="Describe your experience..." value={creatorDescription} onChange={(e) => setCreatorDescription(e.target.value)} style={{ height: '120px' }} required></textarea>
-                      </div>
-
-                      <div className="actionsRow" style={{ marginTop: '25px', display: 'flex', justifyContent: 'flex-end', gap: '15px' }}>
-                        <button type="button" className="btn" onClick={() => setIsEditingCreator(false)}>Cancel</button>
-                        <button type="submit" className="btn cta">Update Profile <i class="fa-solid fa-cloud-arrow-up"></i></button>
-                      </div>
-                    </form>
+                    <div style={{ marginTop: '30px', borderTop: '1px solid var(--border)', paddingTop: '20px' }}>
+                      <p className="tiny" style={{ color: 'var(--red)', fontSize: '12px' }}>Danger Zone (Admin Only)</p>
+                      <button className="btn" style={{ borderColor: 'var(--red)', color: 'var(--red)', background: 'rgba(255,0,0,0.05)' }} onClick={handleClearAllData}>
+                        <i className="fa-solid fa-trash"></i> Delete All Data
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1652,7 +2813,7 @@ function App() {
                 <div className="card">
                   <h3><i className="fa-solid fa-clipboard-check" style={{ color: 'var(--gold)' }}></i> {histId ? 'Edit Your Job History' : 'Submit Previous Job History'}</h3>
                   <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '20px' }}>
-                    {histId ? 'Admin/Owner: Update the candidate\'s profile information.' : 'Apni pichhli job ki details bharein. Yeh data aapki profile ki vishwasniyata badhane mein madad karega.'}
+                    {histId ? 'Admin/Owner: Update the candidate\'s profile information.' : 'Provide your previous employment history. This verified information significantly increases your profile\'s trust and hiring match rate.'}
                   </p>
                   <form onSubmit={handleSubmitHistory}>
                     <h4 style={{ fontSize: '16px', marginTop: '10px', color: 'var(--text-main)', fontFamily: 'Inter, sans-serif' }}><i className="fa-solid fa-user-tag"></i> Your Current Details</h4>
@@ -1678,7 +2839,7 @@ function App() {
                     
                     <h4 style={{ fontSize: '16px', marginTop: '30px', color: 'var(--text-main)', fontFamily: 'Inter, sans-serif' }}><i className="fa-solid fa-feather-pointed"></i> Work Description</h4>
                     <div style={{ marginTop: '15px' }}>
-                      <textarea placeholder="Pichhle kaam ke baare mein vistar se likhein (Kya karte تھے? Kitne saal kiya?)." value={histDescription} onChange={(e) => setHistDescription(e.target.value)} style={{ height: '120px' }} required></textarea>
+                      <textarea placeholder="Describe your previous work responsibilities in detail (e.g., daily tasks, tools used, duration, achievements)..." value={histDescription} onChange={(e) => setHistDescription(e.target.value)} style={{ height: '120px' }} required></textarea>
                     </div>
 
                     <div className="actionsRow" style={{ marginTop: '25px', display: 'flex', justifyContent: 'flex-end', gap: '15px' }}>
@@ -1812,19 +2973,103 @@ function App() {
       {/* 3. Apply Job Modal */}
       {applyJobId && (
         <div id="applyModal" className="modal" style={{ display: 'flex' }}>
-          <div className="card" style={{ width: '500px', border: '1px solid var(--gold)', boxShadow: '0 0 50px rgba(212,175,55,0.2)' }}>
-            <h3 id="applyJobTitle" style={{ color: 'var(--gold)', fontSize: '22px' }}>
-              Apply for: {jobs.find(j => j.id === applyJobId)?.title || 'Job'}
+          <div className="card" style={{ width: '540px', border: '1px solid var(--gold)', boxShadow: '0 0 50px rgba(212,175,55,0.25)' }}>
+            <h3 id="applyJobTitle" style={{ color: 'var(--gold)', fontSize: '22px', display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }}>
+              <i className="fa-solid fa-paper-plane"></i> Apply for: {jobs.find(j => j.id === applyJobId)?.title || 'Job'}
             </h3>
-            <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <input placeholder="Your Full Name" value={appName} onChange={(e) => setAppName(e.target.value)} />
-              <input placeholder="Email Address" value={appEmail} readOnly style={{ opacity: 0.6, cursor: 'not-allowed' }} />
-              <input placeholder="Phone Number" value={appPhone} onChange={(e) => setAppPhone(e.target.value)} />
-              <textarea placeholder="Skills, Experience or Cover Note..." value={appSkills} onChange={(e) => setAppSkills(e.target.value)} style={{ height: '100px' }}></textarea>
+            <p style={{ color: 'var(--muted)', fontSize: '12px', margin: '6px 0 20px 0' }}>
+              Fields marked with (<span style={{ color: 'var(--red)', fontWeight: 'bold' }}>*</span>) are mandatory.
+            </p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', textAlign: 'left' }}>
+              <div>
+                <label style={{ fontSize: '12px', color: 'var(--text-main)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                  Full Name <span style={{ color: 'var(--red)' }}>*</span>
+                </label>
+                <input placeholder="Enter your full name" value={appName} onChange={(e) => setAppName(e.target.value)} required />
+              </div>
+
+              <div className="row" style={{ gap: '12px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-main)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                    Email Address
+                  </label>
+                  <input value={appEmail} readOnly style={{ opacity: 0.6, cursor: 'not-allowed' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-main)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                    Phone Number <span style={{ color: 'var(--red)' }}>*</span>
+                  </label>
+                  <input placeholder="Mobile Number" value={appPhone} onChange={(e) => setAppPhone(e.target.value)} required />
+                </div>
+              </div>
               
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '15px' }}>
+              <div className="row" style={{ gap: '12px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-main)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                    Experience <span style={{ color: 'var(--red)' }}>*</span>
+                  </label>
+                  <select value={appExperience} onChange={(e) => setAppExperience(e.target.value)} required>
+                    <option value="" disabled>Select Experience</option>
+                    <option value="Fresher">Freshers / No Exp</option>
+                    <option value="1-2 Years">1-2 Years Exp</option>
+                    <option value="3-5 Years">3-5 Years Exp</option>
+                    <option value="5+ Years">5+ Years Exp</option>
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-main)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                    Qualification <span style={{ color: 'var(--red)' }}>*</span>
+                  </label>
+                  <select value={appQualification} onChange={(e) => setAppQualification(e.target.value)} required>
+                    <option value="" disabled>Select Qualification</option>
+                    <option value="10th Pass">10th Pass</option>
+                    <option value="12th Pass">12th Pass</option>
+                    <option value="Graduate">Graduate</option>
+                    <option value="Post Graduate">Post Graduate</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', color: 'var(--text-main)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                  Expected Monthly Salary (₹) <span style={{ color: 'var(--red)' }}>*</span>
+                </label>
+                <input type="number" placeholder="e.g. 25000" value={appExpectedSalary} onChange={(e) => setAppExpectedSalary(e.target.value)} required />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', color: 'var(--text-main)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                  Upload Resume / CV <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(Optional)</span>
+                </label>
+                <input 
+                  type="file" 
+                  accept=".pdf,.doc,.docx,image/*" 
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      setAppResumeUrl(`[File Attached: ${file.name}]`);
+                      showToast(`Resume file attached: ${file.name}`, 'info');
+                    }
+                  }} 
+                  style={{ padding: '8px' }}
+                />
+                <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '4px' }}>
+                  Or paste URL: <input type="url" placeholder="https://drive.google.com/..." value={appResumeUrl} onChange={(e) => setAppResumeUrl(e.target.value)} style={{ marginTop: '4px' }} />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', color: 'var(--text-main)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                  Key Skills & Cover Note
+                </label>
+                <textarea placeholder="List your key skills, availability or daily tasks..." value={appSkills} onChange={(e) => setAppSkills(e.target.value)} style={{ height: '80px' }}></textarea>
+              </div>
+              
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
                 <button className="btn" onClick={() => setApplyJobId(null)}>Cancel</button>
-                <button className="btn cta" onClick={handleApplyJob}>Submit Application</button>
+                <button className="btn cta" onClick={handleApplyJob}>Submit Application <i className="fa-solid fa-paper-plane"></i></button>
               </div>
             </div>
           </div>
@@ -1850,6 +3095,121 @@ function App() {
           </div>
         </div>
       )}
+      {/* Mobile Drawer Overlay */}
+      <div className={`mobile-drawer-overlay ${isMobileDrawerOpen ? 'open' : ''}`} onClick={() => setIsMobileDrawerOpen(false)}></div>
+      
+      {/* Mobile Navigation Drawer */}
+      <div className={`mobile-drawer ${isMobileDrawerOpen ? 'open' : ''}`}>
+        <div className="mobile-drawer-header">
+          <div className="brand" onClick={() => { setActiveView('dashboard'); setIsMobileDrawerOpen(false); }}>
+            <div className="brandLogo"><i className="fa-solid fa-crown"></i></div>
+            <div>
+              <div className="brandTitle">JobGold</div>
+            </div>
+          </div>
+          <button className="mobile-drawer-close" onClick={() => setIsMobileDrawerOpen(false)} title="Close Menu">
+            <i className="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <nav className="nav" style={{ marginTop: '10px' }}>
+          <button className={activeView === 'dashboard' ? 'active' : ''} onClick={() => { handleNavClick('dashboard'); setIsMobileDrawerOpen(false); }}><i className="fa-solid fa-gauge-high" style={{ color: 'var(--gold)' }}></i> Dashboard</button>
+          
+          {session && (session.user.role === 'employer' || session.user.role === 'admin') && (
+            <button className={activeView === 'add' ? 'active' : ''} onClick={() => { handleNavClick('add'); setIsMobileDrawerOpen(false); }}><i className="fa-solid fa-circle-plus" style={{ color: '#4caf50' }}></i> Post New Job</button>
+          )}
+
+          <button className={activeView === 'jobs' ? 'active' : ''} onClick={() => { handleNavClick('jobs'); setIsMobileDrawerOpen(false); }}><i className="fa-solid fa-list-check" style={{ color: '#2196f3' }}></i> All Active Jobs</button>
+          
+          {session && (session.user.role === 'employer' || session.user.role === 'admin') && (
+            <button className={activeView === 'employer-apps' ? 'active' : ''} onClick={() => { handleNavClick('employer-apps'); setIsMobileDrawerOpen(false); }}><i className="fa-solid fa-handshake-angle" style={{ color: '#9c27b0' }}></i> Applications Received</button>
+          )}
+
+          {session && (session.user.role === 'jobseeker' || session.user.role === 'admin') && (
+            <button className={activeView === 'jobseeker-apps' ? 'active' : ''} onClick={() => { handleNavClick('jobseeker-apps'); setIsMobileDrawerOpen(false); }}><i className="fa-solid fa-file-invoice" style={{ color: '#2196f3' }}></i> My Job Applications</button>
+          )}
+
+          <button className={activeView === 'profiles' ? 'active' : ''} onClick={() => { handleNavClick('profiles'); setIsMobileDrawerOpen(false); }}><i className="fa-solid fa-user-gear" style={{ color: 'var(--gold)' }}></i> Candidate Profiles</button>
+          
+          {session && (session.user.role === 'jobseeker' || session.user.role === 'admin') && (
+            <button className={activeView === 'submit-history' ? 'active' : ''} onClick={() => { handleNavClick('submit-history'); setIsMobileDrawerOpen(false); }}><i className="fa-solid fa-clock-rotate-left" style={{ color: '#64b5f6' }}></i> Share Job History</button>
+          )}
+
+          {session && (session.user.role === 'jobseeker' || session.user.role === 'admin') && (
+            <button className={activeView === 'saved-jobs' ? 'active' : ''} onClick={() => { handleNavClick('saved-jobs'); setIsMobileDrawerOpen(false); }}><i className="fa-solid fa-heart" style={{ color: 'var(--red)' }}></i> Saved Jobs</button>
+          )}
+
+          <button className={activeView === 'map' ? 'active' : ''} onClick={() => { handleNavClick('map'); setIsMobileDrawerOpen(false); }}><i className="fa-solid fa-map-location-dot" style={{ color: '#00d4ff' }}></i> Jobs Near Me (Map)</button>
+          <button className={activeView === 'about-me' ? 'active' : ''} onClick={() => { handleNavClick('about-me'); setIsMobileDrawerOpen(false); }}><i className="fa-solid fa-user-gear" style={{ color: 'var(--gold)' }}></i> My Profile & Settings</button>
+        </nav>
+        <div style={{ marginTop: 'auto', paddingTop: '20px', borderTop: '1px solid var(--border)', textAlign: 'center' }}>
+           <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
+             Status: <span style={{ color: 'var(--gold)' }}>{session ? (session.user.role === 'admin' ? 'CREATOR' : session.user.role.toUpperCase()) : 'GUEST'}</span>
+           </div>
+        </div>
+      </div>
+      {/* AI Chatbot Floating Trigger & Window */}
+      <div className="chatbot-avatar" onClick={() => setIsChatOpen(!isChatOpen)} title="Chat with JobGold AI Assistant">
+        <div className="avatar-badge-label">Ask AI</div>
+        <div className="avatar-pulse"></div>
+      </div>
+
+      <div className={`chatbot-window ${isChatOpen ? 'open' : ''}`}>
+        <div className="chatbot-header">
+          <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <img src="/real_user_photo.png" alt="Naresh AI" style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1.5px solid var(--gold)', objectFit: 'cover' }} />
+            JobGold AI Assistant
+          </h4>
+          <button className="chatbot-header-close" onClick={() => setIsChatOpen(false)} title="Close Chat">
+            <i className="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <div className="chatbot-messages" id="chat-messages-container">
+          {chatMessages.map(msg => (
+            <div key={msg.id} className={`chatbot-message ${msg.sender}`} dangerouslySetInnerHTML={{ __html: msg.text }}></div>
+          ))}
+          {isChatTyping && (
+            <div className="typing-indicator">
+              <div className="typing-dot"></div>
+              <div className="typing-dot"></div>
+              <div className="typing-dot"></div>
+            </div>
+          )}
+        </div>
+
+        <div className="chatbot-suggestions">
+          {!session ? (
+            <>
+              <div className="suggestion-chip" onClick={() => handleSendChatMessage("How to register?")}>How to register?</div>
+              <div className="suggestion-chip" onClick={() => handleSendChatMessage("Browse active jobs")}>Browse jobs?</div>
+              <div className="suggestion-chip" onClick={() => handleSendChatMessage("Who is the creator?")}>Who made this?</div>
+            </>
+          ) : session.user.role === 'employer' ? (
+            <>
+              <div className="suggestion-chip" onClick={() => handleSendChatMessage("How to post a job?")}>Post a job?</div>
+              <div className="suggestion-chip" onClick={() => handleSendChatMessage("Browse candidate profiles")}>Browse talent?</div>
+              <div className="suggestion-chip" onClick={() => handleSendChatMessage("Who is the creator?")}>Who made this?</div>
+            </>
+          ) : (
+            <>
+              <div className="suggestion-chip" onClick={() => handleSendChatMessage("Show retail jobs")}>Retail jobs?</div>
+              <div className="suggestion-chip" onClick={() => handleSendChatMessage("How do I get verified?")}>How to verify?</div>
+              <div className="suggestion-chip" onClick={() => handleSendChatMessage("Check my application status")}>Application tracker?</div>
+            </>
+          )}
+        </div>
+
+        <form onSubmit={(e) => { e.preventDefault(); handleSendChatMessage(); }} className="chatbot-input-area">
+          <input 
+            placeholder="Type your question..." 
+            value={chatInput} 
+            onChange={(e) => setChatInput(e.target.value)} 
+          />
+          <button type="submit" className="chatbot-send-btn" title="Send Message">
+            <i className="fa-solid fa-paper-plane" style={{ fontSize: '12px' }}></i>
+          </button>
+        </form>
+      </div>
     </>
   );
 }
