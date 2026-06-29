@@ -8,7 +8,7 @@ const DB_FILE = path.join(__dirname, 'db.json');
 
 // In-memory fallback for read-only Vercel serverless functions
 let memoryDB = null;
-const isVercel = process.env.VERCEL === '1';
+const isVercel = Boolean(process.env.VERCEL);
 
 const INITIAL_DATA = {
   users: [

@@ -680,9 +680,11 @@ app.post('/api/admin/clear', authenticateToken, async (req, res) => {
 });
 
 // Start Server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
 
 export default app;
 
